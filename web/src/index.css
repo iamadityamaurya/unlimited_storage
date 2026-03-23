@@ -1,0 +1,53 @@
+@import "tailwindcss";
+
+body {
+  margin: 0;
+  padding: 0;
+  background-color: #0f172a; /* matches bg-slate-900 */
+  color: #e2e8f0; /* matches text-slate-200 */
+  min-height: 100vh;
+  overflow-x: hidden;
+  color-scheme: dark; /* Forces native <select> widgets to dark mode */
+}
+
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+.custom-phone-input {
+  display: flex;
+  align-items: center;
+}
+.custom-phone-input .PhoneInputCountry {
+  margin-right: 0.75rem;
+  padding-right: 0.75rem;
+  border-right: 1px solid #334155; /* border-slate-700 */
+}
+.custom-phone-input .PhoneInputInput {
+  flex: 1;
+  background: transparent !important;
+  color: #f8fafc !important; /* text-slate-50 */
+  border: none !important;
+  outline: none !important;
+  font-size: 1rem;
+}
+.custom-phone-input .PhoneInputCountryIcon {
+  box-shadow: none !important;
+  border-radius: 2px;
+}
+.custom-phone-input .PhoneInputCountrySelectArrow {
+  border-right-width: 2px !important;
+  border-bottom-width: 2px !important;
+  border-color: #cbd5e1 !important;
+  opacity: 0.7;
+}
+
+/* Force Native Dropdown to Dark Mode */
+.custom-phone-input .PhoneInputCountrySelect,
+.custom-phone-input .PhoneInputCountrySelect option {
+  background-color: #0f172a !important; /* matches bg-slate-900 */
+  color: #e2e8f0 !important; /* matches text-slate-200 */
+}
