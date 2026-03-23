@@ -1,30 +1,5 @@
 import React from 'react';
-
-// A classic OS Folder icon matching Linux/Windows aesthetics. (Yellow folder, Gray body)
-const FolderIcon = () => (
-  <svg 
-    className="w-16 h-16 drop-shadow-sm transition-transform duration-200" 
-    viewBox="0 0 48 48" 
-    fill="none" 
-    xmlns="http://www.w3.org/2000/svg"
-  >
-    {/* Dark Back Tab */}
-    <path 
-      d="M40 12H22L18 6H8C5.8 6 4 7.8 4 10V38C4 40.2 5.8 42 8 42H40C42.2 42 44 40.2 44 38V16C44 13.8 42.2 12 40 12Z" 
-      fill="#d4af37" 
-    />
-    {/* Light Front Body */}
-    <path 
-      d="M40 15.5H8C6.34315 15.5 5 16.8431 5 18.5V39C5 40.6569 6.34315 42 8 42H40C41.6569 42 43 40.6569 43 39V18.5C43 16.8431 41.6569 15.5 40 15.5Z" 
-      fill="#facc15" 
-    />
-    {/* Subtle Inner Line for depth */}
-    <path 
-      d="M4 18.5V17C4 16.4477 4.44772 16 5 16H43C43.5523 16 44 16.4477 44 17V18.5H4Z" 
-      fill="#eab308" 
-    />
-  </svg>
-);
+import { FolderIcon } from './icons/Icons';
 
 export default function StorageGrid({ messages, onFolderClick }) {
   if (!messages || messages.length === 0) {

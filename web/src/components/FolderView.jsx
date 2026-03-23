@@ -12,7 +12,7 @@ const formatBytes = (bytes) => {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 };
 
-export default function FolderView({ selectedChat, folderName, onBack }) {
+export default function FolderView({ selectedChat, folderName, refreshTrigger, onBack }) {
   const [files, setFiles] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -55,7 +55,7 @@ export default function FolderView({ selectedChat, folderName, onBack }) {
     };
     fetchFiles();
     return () => { active = false; };
-  }, [selectedChat.id, folderName]);
+  }, [selectedChat.id, folderName, refreshTrigger]);
 
   return (
     <div className="flex-1 w-full flex flex-col pt-2 animate-in fade-in duration-300">
