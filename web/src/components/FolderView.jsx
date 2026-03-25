@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { getCookie } from "../utils/cookies";
 import { getConnectedClient } from "../telegramApi";
 import FilePreview from "./FilePreview";
+import FileViewerModal from "./modals/FileViewerModal";
 
 const formatBytes = (bytes) => {
   if (!bytes) return "Unknown Size";
@@ -15,6 +16,61 @@ const formatBytes = (bytes) => {
 export default function FolderView({ selectedChat, folderName, refreshTrigger, onBack }) {
   const [files, setFiles] = useState([]);
   const [loading, setLoading] = useState(true);
+  
+  // High-Resolution Viewer State Hooks natively isolating modal rendering cleanly
+  const [activePreviewMsg, setActivePreviewMsg] = useState(null);
+
+  // Context Menu Actions
+  const [activeMenuIdx, setActiveMenuIdx] = useState(null);
+  const [downloadingIdx, setDownloadingIdx] = useState(null);
+
+  const handleDownloadFile = async (msg, displayName, idx) => {
+    try {
+      setActiveMenuIdx(null);
+      setDownloadingIdx(idx);
+      
+      const apiId = getCookie("telegram_apiId");
+      const apiHash = getCookie("telegram_apiHash");
+      const token = getCookie("telegram_token");
+      const client = await getConnectedClient(apiId, apiHash, token);
+      
+      const buffer = await client.downloadMedia(msg);
+      
+      if (buffer) {
+        let mimeType = "application/octet-stream";
+        if (msg.media.document && msg.media.document.mimeType) {
+          mimeType = msg.media.document.mimeType;
+        } else if (msg.media.photo) {
+          mimeType = "image/jpeg";
+          // Append extensions safely predicting MTProto mapping omissions
+          if (!displayName.toLowerCase().endsWith(".jpg") && !displayName.toLowerCase().endsWith(".jpeg")) {
+            displayName = displayName + ".jpg";
+          }
+        }
+
+        const blob = new Blob([buffer], { type: mimeType });
+        const url = window.URL.createObjectURL(blob);
+        
+        // Native hidden DOM Link structure mapping direct download behaviors universally
+        const link = document.createElement("a");
+        link.style.display = "none";
+        link.href = url;
+        link.download = displayName;
+        document.body.appendChild(link);
+        link.click();
+        
+        setTimeout(() => {
+           window.URL.revokeObjectURL(url);
+           document.body.removeChild(link);
+        }, 100);
+      }
+    } catch (err) {
+      console.error("Failed to execute native byte-download cleanly:", err);
+      // Failsafe error display eliminating broken execution streams natively
+    } finally {
+      setDownloadingIdx(null);
+    }
+  };
 
   useEffect(() => {
     let active = true;
@@ -31,20 +87,26 @@ export default function FolderView({ selectedChat, folderName, refreshTrigger, o
         
         const suffix = `_${folderName}`;
         
-        // Fetch up to 100 recent matching payload entities filtered purely by our suffix marker
-        const history = await client.getMessages(entityStr, { 
-          limit: 100,
-          search: suffix
+        // Query both realtime and asynchronous historic backend layers eliminating 5-minute index delay
+        const [searchHistory, recentHistory] = await Promise.all([
+          client.getMessages(entityStr, { limit: 100, search: suffix }),
+          client.getMessages(entityStr, { limit: 100 })
+        ]);
+        
+        const combinedHistory = [...recentHistory, ...searchHistory];
+        const uniqueMap = new Map();
+        combinedHistory.forEach(msg => {
+           if (!uniqueMap.has(msg.id)) uniqueMap.set(msg.id, msg);
         });
+        const history = Array.from(uniqueMap.values());
         
         if (active) {
-          // Strictly mandate parsing media arrays rejecting empty comments that lack underlying physical drive files natively
-          // Accommodations implemented stripping hidden whitespace elements gracefully.
           const filtered = history.filter(msg => 
             msg.message && 
             msg.message.trim().endsWith(suffix) && 
             msg.media 
-          );
+          ).sort((a, b) => b.date - a.date);
+          
           setFiles(filtered);
           setLoading(false);
         }
@@ -58,7 +120,7 @@ export default function FolderView({ selectedChat, folderName, refreshTrigger, o
   }, [selectedChat.id, folderName, refreshTrigger]);
 
   return (
-    <div className="flex-1 w-full flex flex-col pt-2 animate-in fade-in duration-300">
+    <div className="flex-1 w-full flex flex-col pt-2 animate-in fade-in duration-300 relative">
       <div className="flex items-center gap-4 mb-8 border-b border-[#333] pb-4">
         <button 
           onClick={onBack}
@@ -107,24 +169,68 @@ export default function FolderView({ selectedChat, folderName, refreshTrigger, o
             return (
               <div 
                 key={idx} 
-                className="group flex flex-col items-center justify-start p-3 rounded-xl hover:bg-white/5 active:bg-white/10 transition-colors duration-150 cursor-pointer"
+                onClick={() => setActivePreviewMsg(msg)}
+                className={`group flex flex-col items-center justify-start p-3 rounded-xl hover:bg-zinc-800/80 active:bg-zinc-800 transition-colors duration-150 cursor-pointer relative ${activeMenuIdx === idx ? 'z-50' : 'z-0'}`}
               >
-                <div className="w-16 h-16 flex items-center justify-center group-active:scale-95 transition-transform duration-150 relative">
+                {/* Independent Context Menu Layout */}
+                <div className="absolute top-1 right-1 z-[60]">
+                  {downloadingIdx === idx ? (
+                    <div className="w-6 h-6 flex items-center justify-center bg-black/60 rounded-full backdrop-blur-sm shadow-sm border border-[#444]">
+                       <div className="w-3 h-3 border-2 border-yellow-500 border-t-transparent rounded-full animate-spin"></div>
+                    </div>
+                  ) : (
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); setActiveMenuIdx(idx === activeMenuIdx ? null : idx); }}
+                      className="w-6 h-6 flex flex-col items-center justify-center gap-[2px] bg-black/40 hover:bg-black/80 rounded-full transition-all text-white opacity-0 group-hover:opacity-100 focus:opacity-100 shadow-sm border border-transparent hover:border-[#555]"
+                    >
+                      <div className="w-[3px] h-[3px] bg-gray-200 rounded-full"></div>
+                      <div className="w-[3px] h-[3px] bg-gray-200 rounded-full"></div>
+                      <div className="w-[3px] h-[3px] bg-gray-200 rounded-full"></div>
+                    </button>
+                  )}
+
+                  {activeMenuIdx === idx && (
+                    <div 
+                       className="absolute top-8 right-0 bg-[#252525] border border-[#444] shadow-2xl rounded-lg w-36 py-1 z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150"
+                       onMouseLeave={() => setActiveMenuIdx(null)}
+                    >
+                      <button 
+                         onClick={(e) => { e.stopPropagation(); handleDownloadFile(msg, displayName, idx); }}
+                         className="w-full text-left px-3 py-2.5 text-xs font-bold text-gray-300 hover:text-white hover:bg-yellow-500 transition-colors flex items-center gap-2"
+                      >
+                         <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                         Download
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                <div className="w-16 h-16 flex items-center justify-center group-active:scale-95 transition-transform duration-150 relative pointer-events-none">
                    <FilePreview msg={msg} />
                    {/* File formatting physical structural tags natively embedded visually */}
                    <div className="absolute -bottom-1 right-0 bg-yellow-500 text-black text-[9px] font-bold px-1.5 py-0.5 rounded-sm z-10 uppercase max-w-[44px] truncate shadow-sm">
                       {typeLabel}
                    </div>
                 </div>
-                <h3 className="text-gray-300 text-xs font-medium text-center leading-tight mt-2 line-clamp-2 px-1 break-all w-full group-hover:text-yellow-500 transition-colors">
+                <h3 className="text-gray-300 text-xs font-medium text-center leading-tight mt-2 line-clamp-2 px-1 break-all w-full group-hover:text-yellow-500 transition-colors pointer-events-none">
                   {displayName}
                 </h3>
-                <span className="text-[#888] text-[9px] mt-1 font-mono">{fileSize}</span>
+                <span className="text-[#888] text-[9px] mt-1 font-mono pointer-events-none">{fileSize}</span>
               </div>
             );
           })}
         </div>
       )}
+
+      {/* Global Background Context Menu Closer mapping cleanly across grid layouts */}
+      {activeMenuIdx !== null && (
+         <div className="fixed inset-0 z-40 bg-transparent" onClick={(e) => { e.stopPropagation(); setActiveMenuIdx(null); }}></div>
+      )}
+
+      <FileViewerModal 
+         msg={activePreviewMsg} 
+         onClose={() => setActivePreviewMsg(null)} 
+      />
     </div>
   );
 }

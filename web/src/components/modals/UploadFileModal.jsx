@@ -5,6 +5,7 @@ export default function UploadFileModal({
   onClose, 
   onUpload, 
   isUploading,
+  uploadProgressText,
   activeFolder
 }) {
   const [selectedFiles, setSelectedFiles] = useState([]);
@@ -34,6 +35,29 @@ export default function UploadFileModal({
 
     onUpload(selectedFiles, captions);
   };
+
+  if (isUploading) {
+    return (
+      <div className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center p-4 backdrop-blur-md animate-in fade-in duration-200">
+        <div className="w-full max-w-md bg-[#252525] border border-[#333] rounded-2xl shadow-2xl overflow-hidden p-10 flex flex-col items-center justify-center relative">
+           {/* Beautiful Nested Spinner */}
+           <div className="relative w-24 h-24 flex items-center justify-center mb-8">
+             <div className="absolute inset-0 border-4 border-[#333] rounded-full"></div>
+             <div className="absolute inset-0 border-4 border-yellow-500 border-t-transparent rounded-full animate-spin"></div>
+             <svg className="w-10 h-10 text-yellow-500 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
+           </div>
+           
+           <h3 className="text-2xl font-bold text-gray-100 mb-3 tracking-tight">Transmitting Payload</h3>
+           <p className="text-yellow-500 text-sm font-bold text-center w-full bg-yellow-500/10 py-2 rounded-lg mb-4 border border-yellow-500/20 shadow-sm">
+              {uploadProgressText || "Securing MTProto channels..."}
+           </p>
+           <p className="text-gray-400 text-xs font-medium text-center px-4 leading-relaxed">
+             Please do not close this window or refresh the browser while the stream is locked.
+           </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-200">

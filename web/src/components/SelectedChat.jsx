@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { getCookie } from "../utils/cookies";
 import { getConnectedClient } from "../telegramApi";
+import { Api } from "telegram";
 import StorageGrid from "./StorageGrid";
 import FolderView from "./FolderView";
 import DashboardHeader from "./layout/DashboardHeader";
@@ -20,6 +21,7 @@ export default function SelectedChat({ selectedChat, onClearChat, onLogOut }) {
   // Binary Upload States
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgressText, setUploadProgressText] = useState("");
   const [folderRefreshTrigger, setFolderRefreshTrigger] = useState(0);
 
   const handleCreateFile = async (e) => {
@@ -68,6 +70,7 @@ export default function SelectedChat({ selectedChat, onClearChat, onLogOut }) {
 
       // Map through all physical selected files iterating sequential uploads securely
       for (let i = 0; i < filesArray.length; i++) {
+        setUploadProgressText(`Uploading file ${i + 1} of ${filesArray.length}...`);
         const fileObj = filesArray[i];
         
         // Grab the precise string matched dynamically inside the mapped form structure
@@ -82,11 +85,19 @@ export default function SelectedChat({ selectedChat, onClearChat, onLogOut }) {
         
         const finalPayloadText = finalName + "_" + activeFolder;
 
-        // MTProto dispatch executing forceDocument sequentially avoiding rate limits natively
+        // Completely sidestep DOM typecasting bugs by extracting raw Blob arrays directly bypassing GramJS JS strict File typing validators
+        const arrayBuffer = await fileObj.arrayBuffer();
+        const physicalBuffer = Buffer.from(arrayBuffer);
+
+        // MTProto dispatch executing forceDocument sequentially utilizing secure Buffer payloads natively
+        // Appending explicit DocumentAttributeFilename guarantees Telegram preserves the exact file format (PDF, DOCX) bypassing CustomFile inference!
         await client.sendFile(entityStr, { 
-          file: fileObj, 
+          file: physicalBuffer, 
           caption: finalPayloadText,
-          forceDocument: true 
+          forceDocument: true,
+          attributes: [
+            new Api.DocumentAttributeFilename({ fileName: fileObj.name || "unnamed_document.bin" })
+          ]
         });
       }
 
@@ -94,7 +105,7 @@ export default function SelectedChat({ selectedChat, onClearChat, onLogOut }) {
       setIsUploadModalOpen(false);
     } catch (err) {
       console.error("Failed to upload binary file payload:", err);
-      alert("Upload failed. Validation error traced to console.");
+      alert(`GramJS Execution Error:\n\n${err.message || String(err)}`);
     } finally {
       setIsUploading(false);
     }
@@ -160,6 +171,7 @@ export default function SelectedChat({ selectedChat, onClearChat, onLogOut }) {
         onClose={() => setIsUploadModalOpen(false)}
         onUpload={handleUploadFile}
         isUploading={isUploading}
+        uploadProgressText={uploadProgressText}
         activeFolder={activeFolder}
       />
     </div>

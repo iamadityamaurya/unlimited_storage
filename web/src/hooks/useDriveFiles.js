@@ -22,17 +22,26 @@ export function useDriveFiles(selectedChatId) {
         
         let entityStr = selectedChatId;
         
-        const history = await client.getMessages(entityStr, { 
-          limit: 30,
-          search: "_File" 
+        // Fetch from 5-minute lag-delayed MTProto Search Index AND instantaneous absolute Physical Chat History securely natively mapped!
+        const [searchHistory, recentHistory] = await Promise.all([
+          client.getMessages(entityStr, { limit: 100, search: "_File" }),
+          client.getMessages(entityStr, { limit: 100 }) // Pulls raw real-time unfiltered objects bypassing server indexing entirely
+        ]);
+        
+        // Merge and safely natively deduplicate physical packets based on ID metrics
+        const combinedHistory = [...recentHistory, ...searchHistory];
+        const uniqueMap = new Map();
+        combinedHistory.forEach(msg => {
+           if (!uniqueMap.has(msg.id)) uniqueMap.set(msg.id, msg);
         });
+        const history = Array.from(uniqueMap.values());
         
         if (active) {
           const filteredHistory = history.filter(msg => 
             msg.message && 
             msg.message.includes("_File") &&
             !msg.media
-          );
+          ).sort((a, b) => b.date - a.date); // Sort safely mapping newly minted DOM objects uniformly natively
           setMessages(filteredHistory);
           setLoading(false);
         }
