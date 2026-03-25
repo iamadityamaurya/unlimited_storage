@@ -88,9 +88,10 @@ export default function FolderView({ selectedChat, folderName, refreshTrigger, o
         const suffix = `_${folderName}`;
         
         // Query both realtime and asynchronous historic backend layers eliminating 5-minute index delay
+        // 10000 limit ensures the global Telegram server explicitly returns thousands of deeply buried physical elements
         const [searchHistory, recentHistory] = await Promise.all([
-          client.getMessages(entityStr, { limit: 100, search: suffix }),
-          client.getMessages(entityStr, { limit: 100 })
+          client.getMessages(entityStr, { limit: 10000, search: suffix }),
+          client.getMessages(entityStr, { limit: 300 })
         ]);
         
         const combinedHistory = [...recentHistory, ...searchHistory];

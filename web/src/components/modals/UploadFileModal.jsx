@@ -18,8 +18,8 @@ export default function UploadFileModal({
     if (e.target.files && e.target.files.length > 0) {
       const filesArray = Array.from(e.target.files);
       setSelectedFiles(filesArray);
-      // Map an individual empty string caption explicitly for every selected file object 
-      setCaptions(new Array(filesArray.length).fill(""));
+      // Pre-populate captions with the original filenames by default natively
+      setCaptions(filesArray.map(f => f.name));
     }
   };
 

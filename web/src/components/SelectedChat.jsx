@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { getCookie } from "../utils/cookies";
 import { getConnectedClient } from "../telegramApi";
 import { Api } from "telegram";
+import { CustomFile } from "telegram/client/uploads";
 import StorageGrid from "./StorageGrid";
 import FolderView from "./FolderView";
 import DashboardHeader from "./layout/DashboardHeader";
@@ -39,7 +40,57 @@ export default function SelectedChat({ selectedChat, onClearChat, onLogOut }) {
       const finalPayload = newFileName.trim() + "_File";
       let entityStr = selectedChat.id;
 
-      await client.sendMessage(entityStr, { message: finalPayload });
+      // Recursive search logic to traverse the ENTIRE global database without limit caps
+      const fetchAllIndexMessages = async () => {
+        let allMatches = [];
+        let offsetId = 0;
+        while (true) {
+          const batch = await client.getMessages(entityStr, { 
+            search: "###_UNLIMITED_STORAGE_INDEX_###", 
+            limit: 100, 
+            offsetId 
+          });
+          if (batch.length === 0) break;
+          allMatches = [...allMatches, ...batch];
+          offsetId = batch[batch.length - 1].id;
+          if (batch.length < 100) break;
+        }
+        return allMatches;
+      };
+
+      // Pull BOTH the entire Search Index and the most recent 100 items to bypass 5-min indexing lag
+      const [searchHistory, recentHistory] = await Promise.all([
+         fetchAllIndexMessages(),
+         client.getMessages(entityStr, { limit: 100 })
+      ]);
+      
+      // Merge and filter all possible instances of the manifesto
+      const allIndexes = [...recentHistory, ...searchHistory].filter(m => m.message && m.message.includes("###_UNLIMITED_STORAGE_INDEX_###"));
+      
+      if (allIndexes.length > 0) {
+         // Sort to find the absolute most recent physical instance
+         allIndexes.sort((a, b) => b.date - a.date);
+         const indexMsg = allIndexes[0];
+         
+         // Extract lines to prevent duplicate folder inserts gracefully
+         const existingLines = indexMsg.message.split('\n');
+         if (!existingLines.includes(finalPayload)) {
+            const newContent = indexMsg.message + "\n" + finalPayload;
+            
+            // Execute Rolling Index Switch: Send New then Delete Old to ensure zero-downtime manifesto access
+            await client.sendMessage(entityStr, { message: newContent });
+            
+            // Clean up legacy index blocks to keep the chat history pristine
+            try {
+              await client.deleteMessages(entityStr, [indexMsg.id], { revoke: true });
+            } catch (delErr) {
+              console.warn("Legacy index cleanup failed (non-critical):", delErr);
+            }
+         }
+      } else {
+         const initialText = "###_UNLIMITED_STORAGE_INDEX_###\n" + finalPayload;
+         await client.sendMessage(entityStr, { message: initialText });
+      }
 
       const newMsg = {
         message: finalPayload,
@@ -51,8 +102,8 @@ export default function SelectedChat({ selectedChat, onClearChat, onLogOut }) {
       setNewFileName("");
       setIsCreateModalOpen(false);
     } catch (err) {
-      console.error("Failed to dispatch file creation string", err);
-      alert("API Dispatch Error: Check Console.");
+      console.error("Failed to execute structural Master Index append natively:", err);
+      alert("Master Index Update Error. Trace console logs.");
     } finally {
       setIsCreating(false);
     }
@@ -73,30 +124,24 @@ export default function SelectedChat({ selectedChat, onClearChat, onLogOut }) {
         setUploadProgressText(`Uploading file ${i + 1} of ${filesArray.length}...`);
         const fileObj = filesArray[i];
         
-        // Grab the precise string matched dynamically inside the mapped form structure
-        let customCaption = captionsArray[i] ? captionsArray[i].trim() : "";
-        
-        let finalName = customCaption;
-        if (!finalName) {
-           const date = new Date();
-           // Adding i safely limits absolute matching failures over instantaneous loops
-           finalName = `File_${date.getFullYear()}${(date.getMonth()+1).toString().padStart(2, '0')}${date.getDate().toString().padStart(2, '0')}_${Math.floor(Math.random() * 10000) + i}`;
-        }
-        
-        const finalPayloadText = finalName + "_" + activeFolder;
+        // Use user-defined caption if provided, otherwise default to the original native filename
+        const baseName = captionsArray[i]?.trim() || fileObj.name;
+        const finalPayloadText = `${baseName}_${activeFolder}`;
 
         // Completely sidestep DOM typecasting bugs by extracting raw Blob arrays directly bypassing GramJS JS strict File typing validators
         const arrayBuffer = await fileObj.arrayBuffer();
         const physicalBuffer = Buffer.from(arrayBuffer);
+        
+        // Use the official CustomFile class for the browser-based Buffer upload directly!
+        const toUpload = new CustomFile(fileObj.name, fileObj.size, "", physicalBuffer);
 
-        // MTProto dispatch executing forceDocument sequentially utilizing secure Buffer payloads natively
-        // Appending explicit DocumentAttributeFilename guarantees Telegram preserves the exact file format (PDF, DOCX) bypassing CustomFile inference!
+        // MTProto dispatch executing forceDocument sequentially utilizing secure Proxy wrappers natively
         await client.sendFile(entityStr, { 
-          file: physicalBuffer, 
+          file: toUpload, 
           caption: finalPayloadText,
           forceDocument: true,
           attributes: [
-            new Api.DocumentAttributeFilename({ fileName: fileObj.name || "unnamed_document.bin" })
+            new Api.DocumentAttributeFilename({ fileName: fileObj.name || "document.bin" })
           ]
         });
       }
