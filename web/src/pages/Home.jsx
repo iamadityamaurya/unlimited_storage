@@ -5,7 +5,7 @@ import { getCookie, setCookie, deleteCookie } from "../utils/cookies";
 import ChatList from "../components/ChatList";
 import SelectedChat from "../components/SelectedChat";
 
-export default function Home() {
+export default function Home({ apiCredentials, onGlobalLogout }) {
   const navigate = useNavigate();
   const [chats, setChats] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -19,9 +19,7 @@ export default function Home() {
 
   useEffect(() => {
     const fetchChats = async () => {
-      const apiId = getCookie("telegram_apiId");
-      const apiHash = getCookie("telegram_apiHash");
-      const token = getCookie("telegram_token");
+      const { apiId, apiHash, token } = apiCredentials;
 
       if (!apiId || !apiHash || !token) {
         navigate("/login");
@@ -46,12 +44,13 @@ export default function Home() {
     };
 
     fetchChats();
-  }, [navigate]);
+  }, [navigate, apiCredentials]);
 
   const handleLogOut = () => {
     deleteCookie("telegram_token");
     deleteCookie("telegram_selected_chat_id");
     deleteCookie("telegram_selected_chat_name");
+    onGlobalLogout();
     navigate("/login");
   };
 
@@ -86,6 +85,7 @@ export default function Home() {
           selectedChat={selectedChat} 
           onClearChat={clearSelectedChat} 
           onLogOut={handleLogOut} 
+          apiCredentials={apiCredentials}
         />
       ) : (
         <ChatList 

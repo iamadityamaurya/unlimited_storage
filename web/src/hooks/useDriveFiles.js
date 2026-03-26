@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { getCookie } from '../utils/cookies';
 import { getConnectedClient } from '../telegramApi';
 
-export function useDriveFiles(selectedChatId) {
+export function useDriveFiles(selectedChatId, apiId, apiHash, token) {
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -11,20 +11,15 @@ export function useDriveFiles(selectedChatId) {
     let active = true;
 
     const fetchFiles = async () => {
-      if (!selectedChatId) return;
+      if (!selectedChatId || !apiId || !apiHash || !token) {
+        setLoading(false);
+        return;
+      }
 
       try {
         setLoading(true);
         setError(null);
         
-        const apiId = getCookie("telegram_apiId");
-        const apiHash = getCookie("telegram_apiHash");
-        const token = getCookie("telegram_token");
-
-        if (!apiId || !apiHash || !token) {
-          throw new Error("Missing MTProto authentication tokens.");
-        }
-
         const client = await getConnectedClient(apiId, apiHash, token);
         let entityStr = selectedChatId;
         

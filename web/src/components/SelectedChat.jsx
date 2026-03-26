@@ -10,8 +10,13 @@ import CreateFileModal from "./modals/CreateFileModal";
 import UploadFileModal from "./modals/UploadFileModal";
 import { useDriveFiles } from "../hooks/useDriveFiles";
 
-export default function SelectedChat({ selectedChat, onClearChat, onLogOut }) {
-  const { messages, setMessages, loading, error } = useDriveFiles(selectedChat?.id);
+export default function SelectedChat({ selectedChat, onClearChat, onLogOut, apiCredentials }) {
+  const { messages, setMessages, loading, error } = useDriveFiles(
+    selectedChat?.id, 
+    apiCredentials?.apiId, 
+    apiCredentials?.apiHash, 
+    apiCredentials?.token
+  );
   
   const [activeFolder, setActiveFolder] = useState(null);
   
@@ -31,13 +36,12 @@ export default function SelectedChat({ selectedChat, onClearChat, onLogOut }) {
 
     try {
       setIsCreating(true);
-      const apiId = getCookie("telegram_apiId");
-      const apiHash = getCookie("telegram_apiHash");
-      const token = getCookie("telegram_token");
+      const { apiId, apiHash, token } = apiCredentials;
       
       const client = await getConnectedClient(apiId, apiHash, token);
       
-      const finalPayload = newFileName.trim() + "_File";
+      const sanitisedName = newFileName.trim().replace(/###/g, "");
+      const finalPayload = sanitisedName + "_File";
       let entityStr = selectedChat.id;
 
       // Recursive search logic to traverse the ENTIRE global database without limit caps
@@ -112,9 +116,7 @@ export default function SelectedChat({ selectedChat, onClearChat, onLogOut }) {
   const handleUploadFile = async (filesArray, captionsArray) => {
     try {
       setIsUploading(true);
-      const apiId = getCookie("telegram_apiId");
-      const apiHash = getCookie("telegram_apiHash");
-      const token = getCookie("telegram_token");
+      const { apiId, apiHash, token } = apiCredentials;
       
       const client = await getConnectedClient(apiId, apiHash, token);
       let entityStr = selectedChat.id;

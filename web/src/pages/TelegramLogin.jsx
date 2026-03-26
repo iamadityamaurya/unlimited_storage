@@ -6,28 +6,16 @@ import 'react-phone-number-input/style.css';
 import { getCookie, setCookie, deleteCookie } from "../utils/cookies";
 
 export default function TelegramLogin({ onLoginSuccess }) {
-  const existingToken = getCookie("telegram_token");
   const navigate = useNavigate();
 
-  const [step, setStep] = useState(existingToken ? 5 : 1); // 1: init, 2: connecting, 3: code, 4: password, 5: done
-  const [apiId, setApiId] = useState(getCookie("telegram_apiId") || "");
-  const [apiHash, setApiHash] = useState(getCookie("telegram_apiHash") || "");
+  const [step, setStep] = useState(1); // Start from zero every time natively
+  const [apiId, setApiId] = useState("");
+  const [apiHash, setApiHash] = useState("");
   const [phoneNumber, setPhoneNumber] = useState(undefined); // undefined allows defaultCountry to work properly
   
-  const [phoneCode, setPhoneCode] = useState("");
-  const [password, setPassword] = useState("");
-  const [sessionToken, setSessionToken] = useState(existingToken || "");
+  // Redirect logic removed to ensure "Enter Every Time" security strictly enforced natively
+  const [sessionToken, setSessionToken] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
-
-  const phoneCodeResolver = useRef(null);
-  const passwordResolver = useRef(null);
-
-  // If already got token on mount, redirect to Home
-  useEffect(() => {
-    if (existingToken) {
-      navigate("/");
-    }
-  }, [existingToken, navigate]);
 
   const startLogin = async (e) => {
     e.preventDefault();
@@ -64,15 +52,10 @@ export default function TelegramLogin({ onLoginSuccess }) {
 
       setSessionToken(token);
 
-      // Save credentials and token to cookies
-      setCookie("telegram_apiId", apiId);
-      setCookie("telegram_apiHash", apiHash);
-      setCookie("telegram_token", token);
-
       setStep(5); // Done
 
       if (onLoginSuccess) {
-        onLoginSuccess(client, token);
+        onLoginSuccess({ apiId, apiHash, token });
       }
       navigate("/"); // Navigate to home
     } catch (err) {

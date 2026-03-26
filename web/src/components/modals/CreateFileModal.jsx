@@ -26,9 +26,14 @@ export default function CreateFileModal({
             value={newFileName}
             onChange={(e) => setNewFileName(e.target.value)}
             placeholder="Folder or File Array Name"
-            className="w-full px-4 py-3 bg-[#1a1a1a] border border-[#333] rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500/50 transition-all text-sm"
+            className={`w-full px-4 py-3 bg-[#1a1a1a] border rounded-lg text-white placeholder-gray-500 focus:outline-none transition-all text-sm ${newFileName.includes('###') ? 'border-red-500 focus:border-red-500 focus:ring-1 focus:ring-red-500/50' : 'border-[#333] focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500/50'}`}
             required
           />
+          {newFileName.includes('###') && (
+            <p className="text-red-500 text-[10px] font-bold mt-2 uppercase tracking-tight">
+              Error: The string "###" is a reserved system marker.
+            </p>
+          )}
         </div>
         
         <div className="bg-[#1e1e1e] px-6 py-4 border-t border-[#333] flex justify-end gap-3">
@@ -42,7 +47,7 @@ export default function CreateFileModal({
           </button>
           <button
             type="submit"
-            disabled={isCreating || !newFileName.trim()}
+            disabled={isCreating || !newFileName.trim() || newFileName.includes('###')}
             className="px-4 py-2 bg-yellow-500 hover:bg-yellow-400 text-black text-sm font-bold rounded-lg shadow-sm disabled:opacity-50 disabled:cursor-not-allowed transition-colors min-w-[100px] flex justify-center items-center"
           >
             {isCreating ? (
