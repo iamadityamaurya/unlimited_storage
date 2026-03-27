@@ -15,7 +15,7 @@ export default function StorageGrid({ messages, onFolderClick }) {
   }
 
   return (
-    <div className="grid grid-cols-[repeat(auto-fill,minmax(110px,1fr))] gap-2 sm:gap-4 pb-20 w-full">
+    <div className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-6 pb-20 w-full">
       {messages.map((msg, idx) => {
         // Extract the name natively breaking out everything after "_File"
         const rawName = msg.message || "";
@@ -25,15 +25,15 @@ export default function StorageGrid({ messages, onFolderClick }) {
           <div 
             key={idx} 
             onClick={() => onFolderClick && onFolderClick(displayName)}
-            className="group flex flex-col items-center justify-start p-3 rounded-xl hover:bg-white/5 active:bg-white/10 transition-colors duration-150 cursor-pointer"
+            className="group flex flex-col items-center justify-start p-4 rounded-2xl hover:bg-white/5 active:bg-white/10 transition-all duration-300 cursor-pointer"
           >
             {/* Raw Icon Frame - No containers or borders */}
-            <div className="w-16 h-16 flex items-center justify-center group-active:scale-95 transition-transform duration-150">
+            <div className="w-20 h-20 flex items-center justify-center group-active:scale-90 transition-transform duration-300">
                <FolderIcon />
             </div>
 
             {/* Strict Name Text aligned underneath */}
-            <h3 className="text-gray-300 text-xs font-medium text-center leading-tight mt-2 line-clamp-2 px-1 break-all w-full">
+            <h3 className="text-gray-200 text-[13px] font-bold text-center leading-tight mt-3 line-clamp-2 px-1 break-all w-full group-hover:text-yellow-500 transition-colors">
               {displayName}
             </h3>
           </div>

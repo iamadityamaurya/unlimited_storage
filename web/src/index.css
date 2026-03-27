@@ -45,9 +45,32 @@ body {
   opacity: 0.7;
 }
 
-/* Force Native Dropdown to Dark Mode */
 .custom-phone-input .PhoneInputCountrySelect,
 .custom-phone-input .PhoneInputCountrySelect option {
   background-color: #0f172a !important; /* matches bg-slate-900 */
   color: #e2e8f0 !important; /* matches text-slate-200 */
+}
+
+/* Premium Custom Scrollbars */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #333;
+  border-radius: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #444;
+}
+
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #333 transparent;
 }

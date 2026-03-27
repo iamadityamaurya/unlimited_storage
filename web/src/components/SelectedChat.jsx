@@ -101,7 +101,7 @@ export default function SelectedChat({ selectedChat, onClearChat, onLogOut }) {
   if (!selectedChat) return null;
 
   return (
-    <div className="relative z-10 w-full min-h-screen bg-transparent flex flex-col transition-all">
+    <div className="relative z-10 w-full h-screen overflow-hidden bg-transparent flex flex-col transition-all">
       <DashboardHeader 
         chatName={selectedChat.name}
         activeFolder={activeFolder}
@@ -111,20 +111,20 @@ export default function SelectedChat({ selectedChat, onClearChat, onLogOut }) {
         onLogOut={onLogOut}
       />
 
-      <div className="flex-1 w-full px-12 lg:px-24 py-8 flex flex-col relative z-0">
+      <div className="flex-1 w-full overflow-hidden flex flex-row relative z-0">
         {loading ? (
-          <div className="flex flex-col items-center justify-center flex-1 h-full w-full opacity-70 min-h-[400px]">
+          <div className="flex flex-col items-center justify-center flex-1 h-full w-full opacity-70">
             <div className="w-10 h-10 border-4 border-yellow-500 border-t-transparent rounded-full animate-spin mb-4"></div>
             <p className="text-yellow-500 text-sm font-medium">Indexing filesystem blocks...</p>
           </div>
         ) : error ? (
-          <div className="flex items-center justify-center flex-1 h-full w-full p-6 text-center min-h-[400px]">
+          <div className="flex items-center justify-center flex-1 h-full w-full p-6 text-center">
             <p className="text-red-400 font-medium bg-red-900/20 p-5 rounded-lg border border-red-900/50 shadow-sm">
               Fatal error resolving directory linkage mapping entity scope. Please select an alternative storage peer.
             </p>
           </div>
         ) : activeFolder ? (
-          <div className="flex flex-1 w-full gap-8 relative">
+          <>
             <FolderSidebar 
               folders={messages} 
               activeFolder={activeFolder} 
@@ -132,7 +132,7 @@ export default function SelectedChat({ selectedChat, onClearChat, onLogOut }) {
               onBack={() => setActiveFolder(null)} 
               onOpenCreateModal={() => setIsCreateModalOpen(true)}
             />
-            <div className="flex-1 min-w-0">
+            <div className="flex-1 overflow-y-auto custom-scrollbar px-12 lg:px-24 py-8">
               <FolderView 
                 selectedChat={selectedChat} 
                 folderName={activeFolder} 
@@ -141,9 +141,9 @@ export default function SelectedChat({ selectedChat, onClearChat, onLogOut }) {
                 onOpenUploadModal={() => setIsUploadModalOpen(true)}
               />
             </div>
-          </div>
+          </>
         ) : (
-          <>
+          <div className="flex-1 overflow-y-auto custom-scrollbar px-12 lg:px-24 py-8">
             <div className="flex items-center justify-between mb-8 animate-in slide-in-from-top-4 duration-300">
               <h1 className="text-xl font-semibold text-gray-200 tracking-tight">My Files</h1>
               <span className="text-sm font-medium text-gray-400 bg-[#1a1a1a] px-3 py-1 rounded-full border border-[#333]">
@@ -151,7 +151,7 @@ export default function SelectedChat({ selectedChat, onClearChat, onLogOut }) {
               </span>
             </div>
             <StorageGrid messages={messages} onFolderClick={setActiveFolder} />
-          </>
+          </div>
         )}
       </div>
 
