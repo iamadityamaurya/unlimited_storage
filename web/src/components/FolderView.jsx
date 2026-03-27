@@ -13,12 +13,35 @@ const formatBytes = (bytes) => {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 };
 
-export default function FolderView({ selectedChat, folderName, refreshTrigger, onBack }) {
+export default function FolderView({ selectedChat, folderName, refreshTrigger, onBack, onOpenUploadModal }) {
   const [files, setFiles] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [sortBy, setSortBy] = useState("date"); // date, name, size
+  const [sortOrder, setSortOrder] = useState("desc"); // asc, desc
+  const [isSortMenuOpen, setIsSortMenuOpen] = useState(false);
   
   // High-Resolution Viewer State Hooks natively isolating modal rendering cleanly
   const [activePreviewMsg, setActivePreviewMsg] = useState(null);
+
+  // Dynamic Local sorting engine mapping physical metadata without re-fetching
+  const sortedFiles = React.useMemo(() => {
+    return [...files].sort((a, b) => {
+      if (sortBy === "name") {
+        const nameA = (a.message.split(`_${folderName}`)[0] || "").toLowerCase();
+        const nameB = (b.message.split(`_${folderName}`)[0] || "").toLowerCase();
+        return sortOrder === "asc" ? nameA.localeCompare(nameB) : nameB.localeCompare(nameA);
+      }
+      if (sortBy === "date") {
+        return sortOrder === "asc" ? a.date - b.date : b.date - a.date;
+      }
+      if (sortBy === "size") {
+        const sizeA = a.media?.document?.size || 0;
+        const sizeB = b.media?.document?.size || 0;
+        return sortOrder === "asc" ? sizeA - sizeB : sizeB - sizeA;
+      }
+      return 0;
+    });
+  }, [files, sortBy, sortOrder, folderName]);
 
   // Context Menu Actions
   const [activeMenuIdx, setActiveMenuIdx] = useState(null);
@@ -106,7 +129,7 @@ export default function FolderView({ selectedChat, folderName, refreshTrigger, o
             msg.message && 
             msg.message.trim().endsWith(suffix) && 
             msg.media 
-          ).sort((a, b) => b.date - a.date);
+          );
           
           setFiles(filtered);
           setLoading(false);
@@ -132,9 +155,53 @@ export default function FolderView({ selectedChat, folderName, refreshTrigger, o
           </svg>
         </button>
         <h2 className="text-xl font-semibold text-gray-200 tracking-tight">{folderName}</h2>
-        <span className="text-sm font-medium text-gray-400 ml-auto bg-[#1a1a1a] px-3 py-1 rounded-full border border-[#333]">
-            {files.length} Internal Files
-        </span>
+        
+        <div className="ml-auto flex items-center gap-2">
+           <button 
+             onClick={onOpenUploadModal}
+             className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 rounded-lg text-xs font-bold text-white transition-all shadow-lg shadow-blue-600/10 border border-blue-400/20 active:scale-95"
+           >
+             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+             Upload
+           </button>
+
+           {/* Local Sorting Dropdown */}
+           <div className="relative">
+              <button 
+                onClick={() => setIsSortMenuOpen(!isSortMenuOpen)}
+                className="flex items-center gap-2 px-3 py-1.5 bg-[#1a1a1a] border border-[#333] rounded-lg text-xs font-bold text-gray-400 hover:text-white hover:border-yellow-500 transition-all shadow-sm"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12"></path></svg>
+                {sortBy === 'date' ? 'Date' : sortBy === 'name' ? 'Name' : 'Size'} ({sortOrder === 'asc' ? '↑' : '↓'})
+              </button>
+              
+              {isSortMenuOpen && (
+                <div className="absolute top-10 right-0 w-36 bg-[#252525] border border-[#444] rounded-xl shadow-2xl z-[70] py-2 animate-in fade-in zoom-in-95 duration-150">
+                   <div className="px-3 py-1 text-[10px] uppercase font-black text-gray-500 tracking-widest mb-1">Sort By</div>
+                   {[
+                     { id: 'date-desc', label: 'Newest', b: 'date', o: 'desc' },
+                     { id: 'date-asc', label: 'Oldest', b: 'date', o: 'asc' },
+                     { id: 'name-asc', label: 'Name (A-Z)', b: 'name', o: 'asc' },
+                     { id: 'name-desc', label: 'Name (Z-A)', b: 'name', o: 'desc' },
+                     { id: 'size-desc', label: 'Largest', b: 'size', o: 'desc' },
+                     { id: 'size-asc', label: 'Smallest', b: 'size', o: 'asc' },
+                   ].map(opt => (
+                     <button
+                       key={opt.id}
+                       onClick={() => { setSortBy(opt.b); setSortOrder(opt.o); setIsSortMenuOpen(false); }}
+                       className={`w-full text-left px-4 py-2 text-xs font-bold transition-colors ${sortBy === opt.b && sortOrder === opt.o ? 'text-yellow-500 bg-yellow-500/5' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
+                     >
+                       {opt.label}
+                     </button>
+                   ))}
+                </div>
+              )}
+           </div>
+
+           <span className="text-sm font-medium text-gray-400 bg-[#1a1a1a] px-3 py-1 rounded-full border border-[#333]">
+               {files.length} Internal Files
+           </span>
+        </div>
       </div>
 
       {loading ? (
@@ -150,7 +217,7 @@ export default function FolderView({ selectedChat, folderName, refreshTrigger, o
         </div>
       ) : (
         <div className="grid grid-cols-[repeat(auto-fill,minmax(110px,1fr))] gap-2 sm:gap-4 pb-20 w-full">
-          {files.map((msg, idx) => {
+          {sortedFiles.map((msg, idx) => {
             const displayName = msg.message.split(`_${folderName}`)[0].trim() || "Unnamed File";
             
             // Render physical metrics natively processing buffers locally

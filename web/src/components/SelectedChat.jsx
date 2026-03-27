@@ -8,7 +8,9 @@ import FolderView from "./FolderView";
 import DashboardHeader from "./layout/DashboardHeader";
 import CreateFileModal from "./modals/CreateFileModal";
 import UploadFileModal from "./modals/UploadFileModal";
+import FolderSidebar from "./FolderSidebar";
 import { useDriveFiles } from "../hooks/useDriveFiles";
+import { createFolderNode } from "../utils/folderManager";
 
 export default function SelectedChat({ selectedChat, onClearChat, onLogOut }) {
   const { messages, setMessages, loading, error } = useDriveFiles(selectedChat?.id);
@@ -36,68 +38,7 @@ export default function SelectedChat({ selectedChat, onClearChat, onLogOut }) {
       const token = getCookie("telegram_token");
       
       const client = await getConnectedClient(apiId, apiHash, token);
-      
-      const sanitisedName = newFileName.trim().replace(/###/g, "");
-      const finalPayload = sanitisedName + "_File";
-      let entityStr = selectedChat.id;
-
-      // Recursive search logic to traverse the ENTIRE global database without limit caps
-      const fetchAllIndexMessages = async () => {
-        let allMatches = [];
-        let offsetId = 0;
-        while (true) {
-          const batch = await client.getMessages(entityStr, { 
-            search: "###_UNLIMITED_STORAGE_INDEX_###", 
-            limit: 100, 
-            offsetId 
-          });
-          if (batch.length === 0) break;
-          allMatches = [...allMatches, ...batch];
-          offsetId = batch[batch.length - 1].id;
-          if (batch.length < 100) break;
-        }
-        return allMatches;
-      };
-
-      // Pull BOTH the entire Search Index and the most recent 100 items to bypass 5-min indexing lag
-      const [searchHistory, recentHistory] = await Promise.all([
-         fetchAllIndexMessages(),
-         client.getMessages(entityStr, { limit: 100 })
-      ]);
-      
-      // Merge and filter all possible instances of the manifesto
-      const allIndexes = [...recentHistory, ...searchHistory].filter(m => m.message && m.message.includes("###_UNLIMITED_STORAGE_INDEX_###"));
-      
-      if (allIndexes.length > 0) {
-         // Sort to find the absolute most recent physical instance
-         allIndexes.sort((a, b) => b.date - a.date);
-         const indexMsg = allIndexes[0];
-         
-         // Extract lines to prevent duplicate folder inserts gracefully
-         const existingLines = indexMsg.message.split('\n');
-         if (!existingLines.includes(finalPayload)) {
-            const newContent = indexMsg.message + "\n" + finalPayload;
-            
-            // Execute Rolling Index Switch: Send New then Delete Old to ensure zero-downtime manifesto access
-            await client.sendMessage(entityStr, { message: newContent });
-            
-            // Clean up legacy index blocks to keep the chat history pristine
-            try {
-              await client.deleteMessages(entityStr, [indexMsg.id], { revoke: true });
-            } catch (delErr) {
-              console.warn("Legacy index cleanup failed (non-critical):", delErr);
-            }
-         }
-      } else {
-         const initialText = "###_UNLIMITED_STORAGE_INDEX_###\n" + finalPayload;
-         await client.sendMessage(entityStr, { message: initialText });
-      }
-
-      const newMsg = {
-        message: finalPayload,
-        date: Math.floor(Date.now() / 1000),
-        id: Math.floor(Math.random() * 9999999)
-      };
+      const newMsg = await createFolderNode(client, selectedChat.id, newFileName);
       
       setMessages([newMsg, ...messages]);
       setNewFileName("");
@@ -170,16 +111,7 @@ export default function SelectedChat({ selectedChat, onClearChat, onLogOut }) {
         onLogOut={onLogOut}
       />
 
-      <div className="flex-1 w-full max-w-7xl mx-auto px-6 py-8 flex flex-col relative z-0">
-        {!activeFolder && (
-          <div className="flex items-center justify-between mb-8 animate-in slide-in-from-top-4 duration-300">
-            <h1 className="text-xl font-semibold text-gray-200 tracking-tight">My Files</h1>
-            <span className="text-sm font-medium text-gray-400 bg-[#1a1a1a] px-3 py-1 rounded-full border border-[#333]">
-              {messages.length} Items Indexed
-            </span>
-          </div>
-        )}
-
+      <div className="flex-1 w-full px-12 lg:px-24 py-8 flex flex-col relative z-0">
         {loading ? (
           <div className="flex flex-col items-center justify-center flex-1 h-full w-full opacity-70 min-h-[400px]">
             <div className="w-10 h-10 border-4 border-yellow-500 border-t-transparent rounded-full animate-spin mb-4"></div>
@@ -192,14 +124,34 @@ export default function SelectedChat({ selectedChat, onClearChat, onLogOut }) {
             </p>
           </div>
         ) : activeFolder ? (
-          <FolderView 
-            selectedChat={selectedChat} 
-            folderName={activeFolder} 
-            refreshTrigger={folderRefreshTrigger}
-            onBack={() => setActiveFolder(null)} 
-          />
+          <div className="flex flex-1 w-full gap-8 relative">
+            <FolderSidebar 
+              folders={messages} 
+              activeFolder={activeFolder} 
+              onFolderClick={setActiveFolder} 
+              onBack={() => setActiveFolder(null)} 
+              onOpenCreateModal={() => setIsCreateModalOpen(true)}
+            />
+            <div className="flex-1 min-w-0">
+              <FolderView 
+                selectedChat={selectedChat} 
+                folderName={activeFolder} 
+                refreshTrigger={folderRefreshTrigger}
+                onBack={() => setActiveFolder(null)} 
+                onOpenUploadModal={() => setIsUploadModalOpen(true)}
+              />
+            </div>
+          </div>
         ) : (
-          <StorageGrid messages={messages} onFolderClick={setActiveFolder} />
+          <>
+            <div className="flex items-center justify-between mb-8 animate-in slide-in-from-top-4 duration-300">
+              <h1 className="text-xl font-semibold text-gray-200 tracking-tight">My Files</h1>
+              <span className="text-sm font-medium text-gray-400 bg-[#1a1a1a] px-3 py-1 rounded-full border border-[#333]">
+                {messages.length} Items Indexed
+              </span>
+            </div>
+            <StorageGrid messages={messages} onFolderClick={setActiveFolder} />
+          </>
         )}
       </div>
 
