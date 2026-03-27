@@ -10,13 +10,8 @@ import CreateFileModal from "./modals/CreateFileModal";
 import UploadFileModal from "./modals/UploadFileModal";
 import { useDriveFiles } from "../hooks/useDriveFiles";
 
-export default function SelectedChat({ selectedChat, onClearChat, onLogOut, apiCredentials }) {
-  const { messages, setMessages, loading, error } = useDriveFiles(
-    selectedChat?.id, 
-    apiCredentials?.apiId, 
-    apiCredentials?.apiHash, 
-    apiCredentials?.token
-  );
+export default function SelectedChat({ selectedChat, onClearChat, onLogOut }) {
+  const { messages, setMessages, loading, error } = useDriveFiles(selectedChat?.id);
   
   const [activeFolder, setActiveFolder] = useState(null);
   
@@ -36,7 +31,9 @@ export default function SelectedChat({ selectedChat, onClearChat, onLogOut, apiC
 
     try {
       setIsCreating(true);
-      const { apiId, apiHash, token } = apiCredentials;
+      const apiId = getCookie("telegram_apiId");
+      const apiHash = getCookie("telegram_apiHash");
+      const token = getCookie("telegram_token");
       
       const client = await getConnectedClient(apiId, apiHash, token);
       
@@ -116,7 +113,9 @@ export default function SelectedChat({ selectedChat, onClearChat, onLogOut, apiC
   const handleUploadFile = async (filesArray, captionsArray) => {
     try {
       setIsUploading(true);
-      const { apiId, apiHash, token } = apiCredentials;
+      const apiId = getCookie("telegram_apiId");
+      const apiHash = getCookie("telegram_apiHash");
+      const token = getCookie("telegram_token");
       
       const client = await getConnectedClient(apiId, apiHash, token);
       let entityStr = selectedChat.id;

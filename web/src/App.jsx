@@ -5,36 +5,17 @@ import TelegramLogin from './pages/TelegramLogin'
 import Home from './pages/Home'
 
 function App() {
-  const [apiCredentials, setApiCredentials] = useState(null);
-
-  const handleLoginSuccess = (creds) => {
-    setApiCredentials(creds);
-  };
-
-  const handleLogout = () => {
-    setApiCredentials(null);
-  };
-
   return (
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={
           <section id="center">
             <div className="mt-8 mb-8">
-              <TelegramLogin onLoginSuccess={handleLoginSuccess} />
+              <TelegramLogin onLoginSuccess={() => window.location.href = '/'} />
             </div>
           </section>
         } />
-        <Route 
-          path="/" 
-          element={
-            apiCredentials ? (
-              <Home apiCredentials={apiCredentials} onGlobalLogout={handleLogout} />
-            ) : (
-              <Navigate to="/login" replace />
-            )
-          } 
-        />
+        <Route path="/" element={<Home />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
