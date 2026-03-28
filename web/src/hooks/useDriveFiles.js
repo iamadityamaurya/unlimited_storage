@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { getCookie } from '../utils/cookies';
 import { getConnectedClient } from '../telegramApi';
+import { parseFolderLine } from '../utils/folderManager';
 
 export function useDriveFiles(selectedChatId) {
   const [messages, setMessages] = useState([]);
@@ -86,10 +87,17 @@ export function useDriveFiles(selectedChatId) {
 
              // Safely natively assemble synthetic mapped blocks explicitly extracting unified sets
              const fakeMessages = Array.from(uniqueLineSet)
-                .filter(line => line.includes('_File') && line !== "###_UNLIMITED_STORAGE_INDEX_###")
-                .map((line, idx) => ({
+                .map(line => {
+                  const parsed = parseFolderLine(line);
+                  if (!parsed) return null;
+                  return { ...parsed, raw: line };
+                })
+                .filter(Boolean)
+                .map((folder, idx) => ({
                    id: baseId * 10000 + idx, // Fake absolute unique metric preventing React key overlaps natively
-                   message: line,
+                   message: folder.raw,
+                   uid: folder.uid,
+                   name: folder.name,
                    date: newestDate, // Inherited raw parent boundary timestamps
                 }))
                 .reverse(); // Reverse strictly sorting the newest instances ascending organically

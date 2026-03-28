@@ -10,6 +10,8 @@ export default function CreateFileModal({
 }) {
   if (!isOpen) return null;
 
+  const hasIllegalChars = newFileName.includes('###') || newFileName.includes('_');
+
   return (
     <div className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-200">
       <form 
@@ -17,7 +19,7 @@ export default function CreateFileModal({
         className="w-full max-w-sm bg-[#252525] border border-[#333] rounded-xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200"
       >
         <div className="p-6">
-          <h3 className="text-lg font-bold text-gray-100 mb-1">Create New File</h3>
+          <h3 className="text-lg font-bold text-gray-100 mb-1">Create New Folder</h3>
           <p className="text-gray-400 text-xs mb-5">Instanciate a new datastream node into the active Telegram drive.</p>
           
           <input
@@ -25,13 +27,13 @@ export default function CreateFileModal({
             autoFocus
             value={newFileName}
             onChange={(e) => setNewFileName(e.target.value)}
-            placeholder="Folder or File Array Name"
-            className={`w-full px-4 py-3 bg-[#1a1a1a] border rounded-lg text-white placeholder-gray-500 focus:outline-none transition-all text-sm ${newFileName.includes('###') ? 'border-red-500 focus:border-red-500 focus:ring-1 focus:ring-red-500/50' : 'border-[#333] focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500/50'}`}
+            placeholder="Folder Name"
+            className={`w-full px-4 py-3 bg-[#1a1a1a] border rounded-lg text-white placeholder-gray-500 focus:outline-none transition-all text-sm ${hasIllegalChars ? 'border-red-500 focus:border-red-500 focus:ring-1 focus:ring-red-500/50' : 'border-[#333] focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500/50'}`}
             required
           />
-          {newFileName.includes('###') && (
+          {hasIllegalChars && (
             <p className="text-red-500 text-[10px] font-bold mt-2 uppercase tracking-tight">
-              Error: The string "###" is a reserved system marker.
+              Error: {newFileName.includes('_') ? 'Underscores ("_") are reserved' : 'The string "###" is reserved'}.
             </p>
           )}
         </div>
@@ -47,7 +49,7 @@ export default function CreateFileModal({
           </button>
           <button
             type="submit"
-            disabled={isCreating || !newFileName.trim() || newFileName.includes('###')}
+            disabled={isCreating || !newFileName.trim() || hasIllegalChars}
             className="px-4 py-2 bg-yellow-500 hover:bg-yellow-400 text-black text-sm font-bold rounded-lg shadow-sm disabled:opacity-50 disabled:cursor-not-allowed transition-colors min-w-[100px] flex justify-center items-center"
           >
             {isCreating ? (

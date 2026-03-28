@@ -36,19 +36,15 @@ export default function FolderSidebar({ folders, activeFolder, onFolderClick, on
         
         <div className="space-y-2 min-w-0">
           {folders.map((f, idx) => {
-            const name = f.message.split('_File')[0];
-            const isActive = activeFolder === name;
+            const { uid, name } = f;
+            const isActive = activeFolder === uid;
             return (
               <div key={idx} className="relative group/folder">
                 <button
-                  onClick={() => onFolderClick(name)}
+                  onClick={() => onFolderClick(uid, name)}
                   className={`w-full group/item text-left px-4 py-3 rounded-2xl text-[13px] font-bold transition-all flex items-center gap-3.5 relative overflow-hidden ${isActive ? 'bg-yellow-500 text-black shadow-lg shadow-yellow-500/20 ring-1 ring-yellow-400/50' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
                 >
-                  {/* Active Indicator Glow */}
-                  {isActive && (
-                     <div className="absolute left-0 top-0 bottom-0 w-1 bg-black/20"></div>
-                  )}
-                  
+                  {/* ... indicator and icon ... */}
                   <div className={`flex-shrink-0 w-9 h-9 rounded-xl flex items-center justify-center transition-colors ${isActive ? 'bg-black/10' : 'bg-white/5 group-hover/item:bg-white/10'}`}>
                     <svg className={`w-4.5 h-4.5 ${isActive ? 'text-black' : 'text-yellow-500/70'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path>
@@ -79,7 +75,7 @@ export default function FolderSidebar({ folders, activeFolder, onFolderClick, on
                       onMouseLeave={() => setActiveMenuIdx(null)}
                     >
                       <button 
-                        onClick={(e) => { e.stopPropagation(); onRenameClick(name); setActiveMenuIdx(null); }}
+                        onClick={(e) => { e.stopPropagation(); onRenameClick({ uid, name }); setActiveMenuIdx(null); }}
                         className="w-full text-left px-4 py-2 text-[12px] font-bold text-gray-300 hover:text-white hover:bg-yellow-500/10 transition-colors flex items-center gap-2"
                       >
                         <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>

@@ -19,14 +19,12 @@ export default function StorageGrid({ messages, onFolderClick, onRenameClick }) 
   return (
     <div className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-6 pb-20 w-full">
       {messages.map((msg, idx) => {
-        // Extract the name natively breaking out everything after "_File"
-        const rawName = msg.message || "";
-        const displayName = rawName.split('_File')[0].trim() || "Unknown";
+        const { uid, name } = msg;
 
         return (
           <div 
             key={idx} 
-            onClick={() => onFolderClick && onFolderClick(displayName)}
+            onClick={() => onFolderClick && onFolderClick(uid, name)}
             className="group flex flex-col items-center justify-start p-4 rounded-2xl hover:bg-white/5 active:bg-white/10 transition-all duration-300 cursor-pointer relative"
           >
             {/* Context Menu Trigger */}
@@ -46,7 +44,7 @@ export default function StorageGrid({ messages, onFolderClick, onRenameClick }) 
                   onMouseLeave={() => setActiveMenuIdx(null)}
                 >
                   <button 
-                    onClick={(e) => { e.stopPropagation(); onRenameClick(displayName); setActiveMenuIdx(null); }}
+                    onClick={(e) => { e.stopPropagation(); onRenameClick({ uid, name }); setActiveMenuIdx(null); }}
                     className="w-full text-left px-4 py-2 text-[13px] font-bold text-gray-300 hover:text-white hover:bg-yellow-500/10 transition-colors flex items-center gap-2"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
@@ -63,7 +61,7 @@ export default function StorageGrid({ messages, onFolderClick, onRenameClick }) 
 
             {/* Strict Name Text aligned underneath */}
             <h3 className="text-gray-200 text-[13px] font-bold text-center leading-tight mt-3 line-clamp-2 px-1 break-all w-full group-hover:text-yellow-500 transition-colors">
-              {displayName}
+              {name}
             </h3>
           </div>
         );

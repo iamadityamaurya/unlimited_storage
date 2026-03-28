@@ -16,7 +16,8 @@ import { createFolderNode, renameFolderNode } from "../utils/folderManager";
 export default function SelectedChat({ selectedChat, onClearChat, onLogOut }) {
   const { messages, setMessages, loading, error, refresh } = useDriveFiles(selectedChat?.id);
   
-  const [activeFolder, setActiveFolder] = useState(null);
+  const [activeFolder, setActiveFolder] = useState(null); // This is now the UID
+  const [activeFolderName, setActiveFolderName] = useState(""); // Display name
   
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [newFileName, setNewFileName] = useState("");
@@ -24,7 +25,7 @@ export default function SelectedChat({ selectedChat, onClearChat, onLogOut }) {
 
   // Rename States
   const [isRenameModalOpen, setIsRenameModalOpen] = useState(false);
-  const [folderToRename, setFolderToRename] = useState(null);
+  const [folderToRename, setFolderToRename] = useState(null); // { uid, name }
   const [isRenaming, setIsRenaming] = useState(false);
   const [renameProgressText, setRenameProgressText] = useState("");
 
@@ -45,9 +46,10 @@ export default function SelectedChat({ selectedChat, onClearChat, onLogOut }) {
       const token = getCookie("telegram_token");
       
       const client = await getConnectedClient(apiId, apiHash, token);
-      const newMsg = await createFolderNode(client, selectedChat.id, newFileName);
+      await createFolderNode(client, selectedChat.id, newFileName);
       
-      setMessages([newMsg, ...messages]);
+      // Full refresh to catch everything
+      await refresh();
       setNewFileName("");
       setIsCreateModalOpen(false);
     } catch (err) {
@@ -58,7 +60,7 @@ export default function SelectedChat({ selectedChat, onClearChat, onLogOut }) {
     }
   };
 
-  const handleRenameFolder = async (oldName, newName) => {
+  const handleRenameFolder = async (oldFolder, newName) => {
     try {
       setIsRenaming(true);
       const apiId = getCookie("telegram_apiId");
@@ -66,11 +68,15 @@ export default function SelectedChat({ selectedChat, onClearChat, onLogOut }) {
       const token = getCookie("telegram_token");
       
       const client = await getConnectedClient(apiId, apiHash, token);
-      await renameFolderNode(client, selectedChat.id, oldName, newName, (progress) => {
+      await renameFolderNode(client, selectedChat.id, oldFolder, newName, (progress) => {
         setRenameProgressText(progress);
       });
       
-      // Full re-index refresh after structural rename
+      // If we are currently inside the folder we renamed, update the display name locally
+      if (activeFolder === oldFolder.uid) {
+        setActiveFolderName(newName);
+      }
+
       await refresh();
       setIsRenameModalOpen(false);
       setFolderToRename(null);
@@ -99,6 +105,7 @@ export default function SelectedChat({ selectedChat, onClearChat, onLogOut }) {
         
         // Use user-defined caption if provided, otherwise default to the original native filename
         const baseName = captionsArray[i]?.trim() || fileObj.name;
+        // SUFFIX IS NOW THE IMMUTABLE UID
         const finalPayloadText = `${baseName}_${activeFolder}`;
 
         // Completely sidestep DOM typecasting bugs by extracting raw Blob arrays directly bypassing GramJS JS strict File typing validators
@@ -159,17 +166,18 @@ export default function SelectedChat({ selectedChat, onClearChat, onLogOut }) {
             <FolderSidebar 
               folders={messages} 
               activeFolder={activeFolder} 
-              onFolderClick={setActiveFolder} 
-              onBack={() => setActiveFolder(null)} 
+              onFolderClick={(uid, name) => { setActiveFolder(uid); setActiveFolderName(name); }} 
+              onBack={() => { setActiveFolder(null); setActiveFolderName(""); }} 
               onOpenCreateModal={() => setIsCreateModalOpen(true)}
-              onRenameClick={(name) => { setFolderToRename(name); setIsRenameModalOpen(true); }}
+              onRenameClick={(folder) => { setFolderToRename(folder); setIsRenameModalOpen(true); }}
             />
             <div className="flex-1 overflow-y-auto custom-scrollbar px-12 lg:px-24 py-8">
               <FolderView 
                 selectedChat={selectedChat} 
-                folderName={activeFolder} 
+                folderName={activeFolderName} 
+                folderUID={activeFolder}
                 refreshTrigger={folderRefreshTrigger}
-                onBack={() => setActiveFolder(null)} 
+                onBack={() => { setActiveFolder(null); setActiveFolderName(""); }} 
                 onOpenUploadModal={() => setIsUploadModalOpen(true)}
               />
             </div>
@@ -184,12 +192,13 @@ export default function SelectedChat({ selectedChat, onClearChat, onLogOut }) {
             </div>
             <StorageGrid 
               messages={messages} 
-              onFolderClick={setActiveFolder} 
-              onRenameClick={(name) => { setFolderToRename(name); setIsRenameModalOpen(true); }}
+              onFolderClick={(uid, name) => { setActiveFolder(uid); setActiveFolderName(name); }} 
+              onRenameClick={(folder) => { setFolderToRename(folder); setIsRenameModalOpen(true); }}
             />
           </div>
         )}
       </div>
+
 
       <CreateFileModal 
         isOpen={isCreateModalOpen}
@@ -205,7 +214,7 @@ export default function SelectedChat({ selectedChat, onClearChat, onLogOut }) {
         onClose={() => setIsRenameModalOpen(false)}
         onRename={handleRenameFolder}
         isRenaming={isRenaming}
-        oldName={folderToRename}
+        oldFolder={folderToRename}
         renameProgressText={renameProgressText}
       />
 

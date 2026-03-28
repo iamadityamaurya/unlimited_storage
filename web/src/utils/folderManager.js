@@ -1,6 +1,19 @@
 /**
- * Utility for managing the Master Index manifesto and folder creation logic.
+ * Utility for managing the Master Index manifesto and UID-based folder logic.
  */
+
+const generateUID = () => Math.floor(100000 + Math.random() * 900000).toString();
+
+export const parseFolderLine = (line) => {
+  if (!line || !line.includes('_File')) return null;
+  const raw = line.split('_File')[0]; // "123456 - My Folder"
+  if (raw.includes(' - ')) {
+    const parts = raw.split(' - ');
+    return { uid: parts[0], name: parts.slice(1).join(' - ') };
+  }
+  // Fallback for legacy (compatibility with original suffix)
+  return { uid: raw, name: raw };
+};
 
 export const fetchAllIndexMessages = async (client, entityStr) => {
   let allMatches = [];
@@ -21,10 +34,11 @@ export const fetchAllIndexMessages = async (client, entityStr) => {
 
 export const createFolderNode = async (client, selectedChatId, folderName) => {
   const sanitisedName = folderName.trim().replace(/###/g, "");
-  const finalPayload = sanitisedName + "_File";
+  const uid = generateUID();
+  const finalPayload = `${uid} - ${sanitisedName}_File`;
   const entityStr = selectedChatId;
 
-  // Pull BOTH the entire Search Index and the most recent 100 items to bypass 5-min indexing lag
+  // Pull BOTH the entire Search Index and the most recent 100 items
   const [searchHistory, recentHistory] = await Promise.all([
     fetchAllIndexMessages(client, entityStr),
     client.getMessages(entityStr, { limit: 100 })
@@ -35,12 +49,10 @@ export const createFolderNode = async (client, selectedChatId, folderName) => {
   if (allIndexes.length > 0) {
     allIndexes.sort((a, b) => b.date - a.date);
     const indexMsg = allIndexes[0];
-    const existingLines = indexMsg.message.split('\n');
-    if (!existingLines.includes(finalPayload)) {
-      const newContent = indexMsg.message + "\n" + finalPayload;
-      await client.sendMessage(entityStr, { message: newContent });
-      try { await client.deleteMessages(entityStr, [indexMsg.id], { revoke: true }); } catch (e) {}
-    }
+    const newContent = indexMsg.message + "\n" + finalPayload;
+    
+    await client.sendMessage(entityStr, { message: newContent });
+    try { await client.deleteMessages(entityStr, [indexMsg.id], { revoke: true }); } catch (e) {}
   } else {
     const initialText = "###_UNLIMITED_STORAGE_INDEX_###\n" + finalPayload;
     await client.sendMessage(entityStr, { message: initialText });
@@ -50,17 +62,19 @@ export const createFolderNode = async (client, selectedChatId, folderName) => {
 };
 
 /**
- * Rename a folder node in the Master Index and update all associated file captions.
+ * Rename a folder: O(1) Operation. ONLY updates the line in the Master Index.
+ * Files remain linked via the immutable UID.
  */
-export const renameFolderNode = async (client, selectedChatId, oldName, newName, onProgress) => {
+export const renameFolderNode = async (client, selectedChatId, oldFolderObj, newName, onProgress) => {
   const entityStr = selectedChatId;
-  const oldPayload = oldName.trim() + "_File";
-  const newPayload = newName.trim().replace(/###/g, "") + "_File";
+  const { uid, name: oldName } = oldFolderObj;
+  
+  const oldPayload = `${uid} - ${oldName}_File`;
+  const newPayload = `${uid} - ${newName.trim().replace(/###/g, "")}_File`;
 
   if (oldName === newName) return;
 
-  // 1. Update Master Index manifesto
-  onProgress && onProgress("Updating Master Index...");
+  onProgress && onProgress("Updating Master Index Manifesto...");
   const [searchHistory, recentHistory] = await Promise.all([
     fetchAllIndexMessages(client, entityStr),
     client.getMessages(entityStr, { limit: 100 })
@@ -71,50 +85,13 @@ export const renameFolderNode = async (client, selectedChatId, oldName, newName,
   if (allIndexes.length > 0) {
     allIndexes.sort((a, b) => b.date - a.date);
     const indexMsg = allIndexes[0];
+    
+    // Replace only the specific UID node line natively
     const newContent = indexMsg.message.replace(oldPayload, newPayload);
     
     await client.sendMessage(entityStr, { message: newContent });
     try { await client.deleteMessages(entityStr, [indexMsg.id], { revoke: true }); } catch (e) {}
   }
 
-  // 2. Update File Captions (Suffix change)
-  onProgress && onProgress("Scanning child file blocks...");
-  let offsetId = 0;
-  let filesToUpdate = [];
-  const oldSuffix = `_${oldName}`;
-  const newSuffix = `_${newName}`;
-
-  // Recursive fetch of all files belonging to this folder
-  while (true) {
-    const batch = await client.getMessages(entityStr, { 
-      search: oldSuffix, 
-      limit: 100, 
-      offsetId 
-    });
-    if (batch.length === 0) break;
-    // Filter strictly for perfect suffix match to avoid partial name match bugs
-    const strictlyMatched = batch.filter(m => m.message && m.message.endsWith(oldSuffix));
-    filesToUpdate = [...filesToUpdate, ...strictlyMatched];
-    offsetId = batch[batch.length - 1].id;
-    if (batch.length < 100) break;
-  }
-
-  onProgress && onProgress(`Synchronizing ${filesToUpdate.length} file metadata blocks...`);
-  
-  // Batch edit captions sequentially to avoid heavy rate limits
-  for (let i = 0; i < filesToUpdate.length; i++) {
-    const msg = filesToUpdate[i];
-    const newCaption = msg.message.replace(oldSuffix, newSuffix);
-    try {
-      await client.editMessage(entityStr, {
-        message: msg.id,
-        text: newCaption
-      });
-      onProgress && onProgress(`Updated ${i + 1}/${filesToUpdate.length} sync points...`);
-    } catch (err) {
-      console.error(`Failed to sync file ${msg.id}:`, err);
-    }
-  }
-
-  onProgress && onProgress("Renaming complete.");
+  onProgress && onProgress("Directory pointer synchronized.");
 };

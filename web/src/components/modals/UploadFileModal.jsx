@@ -14,6 +14,8 @@ export default function UploadFileModal({
 
   if (!isOpen) return null;
 
+  const hasIllegalChars = (text) => text.includes('###') || text.includes('_');
+
   const handleFileChange = (e) => {
     if (e.target.files && e.target.files.length > 0) {
       const filesArray = Array.from(e.target.files);
@@ -31,7 +33,7 @@ export default function UploadFileModal({
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (selectedFiles.length === 0) return;
+    if (selectedFiles.length === 0 || captions.some(hasIllegalChars)) return;
 
     onUpload(selectedFiles, captions);
   };
@@ -97,20 +99,29 @@ export default function UploadFileModal({
 
           <div className="mt-5 space-y-4">
             {selectedFiles.length > 0 ? (
-              selectedFiles.map((f, idx) => (
-                <div key={idx} className="space-y-1 relative group">
-                  <label className="text-[10px] font-semibold text-yellow-500/80 uppercase truncate w-full block" title={f.name}>
-                    CAPTION FOR "{f.name}"
-                  </label>
-                  <input
-                    type="text"
-                    value={captions[idx] || ""}
-                    onChange={(e) => handleCaptionChange(idx, e.target.value)}
-                    placeholder="Auto-generates if left blank..."
-                    className="w-full px-3 py-2.5 bg-[#1a1a1a] border border-[#333] rounded-lg text-white placeholder-gray-600 focus:outline-none focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500/50 transition-all text-sm"
-                  />
-                </div>
-              ))
+              selectedFiles.map((f, idx) => {
+                const currentCaption = captions[idx] || "";
+                const isInvalid = hasIllegalChars(currentCaption);
+                return (
+                  <div key={idx} className="space-y-1 relative group">
+                    <label className="text-[10px] font-semibold text-yellow-500/80 uppercase truncate w-full block" title={f.name}>
+                      CAPTION FOR "{f.name}"
+                    </label>
+                    <input
+                      type="text"
+                      value={currentCaption}
+                      onChange={(e) => handleCaptionChange(idx, e.target.value)}
+                      placeholder="Auto-generates if left blank..."
+                      className={`w-full px-3 py-2.5 bg-[#1a1a1a] border rounded-lg text-white placeholder-gray-600 focus:outline-none transition-all text-sm ${isInvalid ? 'border-red-500 focus:ring-red-500/50' : 'border-[#333] focus:border-yellow-500 focus:ring-yellow-500/50'}`}
+                    />
+                    {isInvalid && (
+                      <p className="text-red-500 text-[9px] font-bold uppercase tracking-tight">
+                        Reserved character detected: {currentCaption.includes('_') ? '"_"' : '"###"'}
+                      </p>
+                    )}
+                  </div>
+                );
+              })
             ) : (
                 <div className="space-y-1 opacity-50 pointer-events-none">
                   <label className="text-[10px] font-semibold text-gray-400">FILE CAPTION</label>
@@ -135,7 +146,7 @@ export default function UploadFileModal({
           </button>
           <button
             type="submit"
-            disabled={isUploading || selectedFiles.length === 0}
+            disabled={isUploading || selectedFiles.length === 0 || captions.some(hasIllegalChars)}
             className="px-4 py-2 bg-yellow-500 hover:bg-yellow-400 text-black text-sm font-bold rounded-lg shadow-sm disabled:opacity-50 disabled:cursor-not-allowed transition-colors min-w-[100px] flex justify-center items-center"
           >
             {isUploading ? (

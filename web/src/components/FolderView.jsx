@@ -13,7 +13,7 @@ const formatBytes = (bytes) => {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 };
 
-export default function FolderView({ selectedChat, folderName, refreshTrigger, onBack, onOpenUploadModal }) {
+export default function FolderView({ selectedChat, folderName, folderUID, refreshTrigger, onBack, onOpenUploadModal }) {
   const [files, setFiles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [sortBy, setSortBy] = useState("date"); // date, name, size
@@ -27,8 +27,8 @@ export default function FolderView({ selectedChat, folderName, refreshTrigger, o
   const sortedFiles = React.useMemo(() => {
     return [...files].sort((a, b) => {
       if (sortBy === "name") {
-        const nameA = (a.message.split(`_${folderName}`)[0] || "").toLowerCase();
-        const nameB = (b.message.split(`_${folderName}`)[0] || "").toLowerCase();
+        const nameA = (a.message.split(`_${folderUID}`)[0] || "").toLowerCase();
+        const nameB = (b.message.split(`_${folderUID}`)[0] || "").toLowerCase();
         return sortOrder === "asc" ? nameA.localeCompare(nameB) : nameB.localeCompare(nameA);
       }
       if (sortBy === "date") {
@@ -108,7 +108,7 @@ export default function FolderView({ selectedChat, folderName, refreshTrigger, o
         const client = await getConnectedClient(apiId, apiHash, token);
         let entityStr = selectedChat.id;
         
-        const suffix = `_${folderName}`;
+        const suffix = `_${folderUID}`;
         
         // Query both realtime and asynchronous historic backend layers eliminating 5-minute index delay
         // 10000 limit ensures the global Telegram server explicitly returns thousands of deeply buried physical elements
@@ -141,7 +141,7 @@ export default function FolderView({ selectedChat, folderName, refreshTrigger, o
     };
     fetchFiles();
     return () => { active = false; };
-  }, [selectedChat.id, folderName, refreshTrigger]);
+  }, [selectedChat.id, folderUID, refreshTrigger]);
 
   return (
     <div className="flex-1 w-full flex flex-col pt-2 animate-in fade-in duration-300 relative">
@@ -213,12 +213,12 @@ export default function FolderView({ selectedChat, folderName, refreshTrigger, o
         <div className="flex flex-col items-center justify-center flex-1 py-12 text-center opacity-70">
           <FileThumbnail msg={null} />
           <p className="text-gray-300 font-bold text-lg mt-5 mb-2">No Files Found</p>
-          <p className="text-gray-500 text-sm">Upload media or documents ending strictly with _{folderName} in Telegram.</p>
+          <p className="text-gray-500 text-sm">Upload media or documents targeting UID: <span className="font-mono text-yellow-500/80">{folderUID}</span></p>
         </div>
       ) : (
         <div className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-6 pb-20 w-full">
           {sortedFiles.map((msg, idx) => {
-            const displayName = msg.message.split(`_${folderName}`)[0].trim() || "Unnamed File";
+            const displayName = msg.message.split(`_${folderUID}`)[0].trim() || "Unnamed File";
             
             // Render physical metrics natively processing buffers locally
             let fileSize = "Unknown Size";

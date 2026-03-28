@@ -1,20 +1,22 @@
 import React, { useState, useEffect } from 'react';
 
-export default function RenameFolderModal({ isOpen, onClose, onRename, isRenaming, oldName, renameProgressText }) {
+export default function RenameFolderModal({ isOpen, onClose, onRename, isRenaming, oldFolder, renameProgressText }) {
   const [newName, setNewName] = useState('');
 
   useEffect(() => {
-    if (isOpen) {
-      setNewName(oldName || '');
+    if (isOpen && oldFolder) {
+      setNewName(oldFolder.name || '');
     }
-  }, [isOpen, oldName]);
+  }, [isOpen, oldFolder]);
 
   if (!isOpen) return null;
 
+  const hasIllegalChars = newName.includes('###') || newName.includes('_');
+
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!newName.trim() || newName.trim() === oldName) return;
-    onRename(oldName, newName.trim());
+    if (!newName.trim() || !oldFolder || newName.trim() === oldFolder.name || hasIllegalChars) return;
+    onRename(oldFolder, newName.trim());
   };
 
   return (
@@ -48,8 +50,13 @@ export default function RenameFolderModal({ isOpen, onClose, onRename, isRenamin
                   value={newName}
                   onChange={(e) => setNewName(e.target.value)}
                   placeholder="Enter new name..."
-                  className="w-full bg-[#252525] border border-[#444] rounded-2xl px-5 py-4 text-gray-200 focus:outline-none focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500/50 transition-all font-bold"
+                  className={`w-full bg-[#252525] border rounded-2xl px-5 py-4 text-gray-200 focus:outline-none transition-all font-bold ${hasIllegalChars ? 'border-red-500 focus:ring-red-500/50' : 'border-[#444] focus:border-yellow-500 focus:ring-yellow-500/50'}`}
                 />
+                {hasIllegalChars && (
+                  <p className="text-red-500 text-[10px] font-bold mt-1 uppercase tracking-tight ml-1">
+                    Error: {newName.includes('_') ? 'Underscores ("_") are reserved' : 'The string "###" is reserved'}.
+                  </p>
+                )}
               </div>
 
               <div className="flex gap-3 pt-2">
@@ -62,7 +69,7 @@ export default function RenameFolderModal({ isOpen, onClose, onRename, isRenamin
                 </button>
                 <button
                   type="submit"
-                  disabled={!newName.trim() || newName.trim() === oldName}
+                  disabled={!newName.trim() || !oldFolder || newName.trim() === oldFolder.name || hasIllegalChars}
                   className="flex-[2] px-6 py-4 bg-yellow-500 hover:bg-yellow-400 disabled:opacity-50 disabled:hover:bg-yellow-500 text-black rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-lg shadow-yellow-500/20"
                 >
                   Save Changes
