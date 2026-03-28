@@ -8,18 +8,25 @@ import FolderView from "./FolderView";
 import DashboardHeader from "./layout/DashboardHeader";
 import CreateFileModal from "./modals/CreateFileModal";
 import UploadFileModal from "./modals/UploadFileModal";
+import RenameFolderModal from "./modals/RenameFolderModal";
 import FolderSidebar from "./FolderSidebar";
 import { useDriveFiles } from "../hooks/useDriveFiles";
-import { createFolderNode } from "../utils/folderManager";
+import { createFolderNode, renameFolderNode } from "../utils/folderManager";
 
 export default function SelectedChat({ selectedChat, onClearChat, onLogOut }) {
-  const { messages, setMessages, loading, error } = useDriveFiles(selectedChat?.id);
+  const { messages, setMessages, loading, error, refresh } = useDriveFiles(selectedChat?.id);
   
   const [activeFolder, setActiveFolder] = useState(null);
   
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [newFileName, setNewFileName] = useState("");
   const [isCreating, setIsCreating] = useState(false);
+
+  // Rename States
+  const [isRenameModalOpen, setIsRenameModalOpen] = useState(false);
+  const [folderToRename, setFolderToRename] = useState(null);
+  const [isRenaming, setIsRenaming] = useState(false);
+  const [renameProgressText, setRenameProgressText] = useState("");
 
   // Binary Upload States
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
@@ -48,6 +55,30 @@ export default function SelectedChat({ selectedChat, onClearChat, onLogOut }) {
       alert("Master Index Update Error. Trace console logs.");
     } finally {
       setIsCreating(false);
+    }
+  };
+
+  const handleRenameFolder = async (oldName, newName) => {
+    try {
+      setIsRenaming(true);
+      const apiId = getCookie("telegram_apiId");
+      const apiHash = getCookie("telegram_apiHash");
+      const token = getCookie("telegram_token");
+      
+      const client = await getConnectedClient(apiId, apiHash, token);
+      await renameFolderNode(client, selectedChat.id, oldName, newName, (progress) => {
+        setRenameProgressText(progress);
+      });
+      
+      // Full re-index refresh after structural rename
+      await refresh();
+      setIsRenameModalOpen(false);
+      setFolderToRename(null);
+    } catch (err) {
+      console.error("Renaming failed:", err);
+      alert(`Structural Rename Error:\n\n${err.message || String(err)}`);
+    } finally {
+      setIsRenaming(false);
     }
   };
 
@@ -131,6 +162,7 @@ export default function SelectedChat({ selectedChat, onClearChat, onLogOut }) {
               onFolderClick={setActiveFolder} 
               onBack={() => setActiveFolder(null)} 
               onOpenCreateModal={() => setIsCreateModalOpen(true)}
+              onRenameClick={(name) => { setFolderToRename(name); setIsRenameModalOpen(true); }}
             />
             <div className="flex-1 overflow-y-auto custom-scrollbar px-12 lg:px-24 py-8">
               <FolderView 
@@ -150,7 +182,11 @@ export default function SelectedChat({ selectedChat, onClearChat, onLogOut }) {
                 {messages.length} Items Indexed
               </span>
             </div>
-            <StorageGrid messages={messages} onFolderClick={setActiveFolder} />
+            <StorageGrid 
+              messages={messages} 
+              onFolderClick={setActiveFolder} 
+              onRenameClick={(name) => { setFolderToRename(name); setIsRenameModalOpen(true); }}
+            />
           </div>
         )}
       </div>
@@ -162,6 +198,15 @@ export default function SelectedChat({ selectedChat, onClearChat, onLogOut }) {
         isCreating={isCreating}
         newFileName={newFileName}
         setNewFileName={setNewFileName}
+      />
+
+      <RenameFolderModal 
+        isOpen={isRenameModalOpen}
+        onClose={() => setIsRenameModalOpen(false)}
+        onRename={handleRenameFolder}
+        isRenaming={isRenaming}
+        oldName={folderToRename}
+        renameProgressText={renameProgressText}
       />
 
       <UploadFileModal 

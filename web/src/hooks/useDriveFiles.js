@@ -6,6 +6,9 @@ export function useDriveFiles(selectedChatId) {
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+
+  const refresh = () => setRefreshTrigger(prev => prev + 1);
 
   useEffect(() => {
     let active = true;
@@ -110,7 +113,7 @@ export function useDriveFiles(selectedChatId) {
     fetchFiles();
 
     return () => { active = false; };
-  }, [selectedChatId]);
+  }, [selectedChatId, refreshTrigger]);
 
-  return { messages, setMessages, loading, error };
+  return { messages, setMessages, loading, error, refresh };
 }
