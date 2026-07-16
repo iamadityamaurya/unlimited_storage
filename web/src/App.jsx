@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import './App.css'
 import TelegramLogin from './pages/TelegramLogin'
@@ -15,7 +14,19 @@ function App() {
             </div>
           </section>
         } />
+        {/* Main home redirects to drives or last selected drive inside Home component */}
         <Route path="/" element={<Home />} />
+        <Route path="/drives" element={<Home />} />
+        
+        {/* Drive views */}
+        <Route path="/drive/:chatId" element={<Home />} />
+        <Route path="/drive/:chatId/file/:messageId" element={<Home />} />
+        
+        {/* Drive folder views */}
+        <Route path="/drive/:chatId/folder/:folderId" element={<Home />} />
+        <Route path="/drive/:chatId/folder/:folderId/file/:messageId" element={<Home />} />
+        
+        {/* Fallback */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

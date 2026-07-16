@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import { getCookie } from "../utils/cookies";
 import { getConnectedClient } from "../telegramApi";
 import { Api } from "telegram";
@@ -10,14 +11,18 @@ import CreateFileModal from "./modals/CreateFileModal";
 import UploadFileModal from "./modals/UploadFileModal";
 import RenameFolderModal from "./modals/RenameFolderModal";
 import FolderSidebar from "./FolderSidebar";
+import FileViewerModal from "./modals/FileViewerModal";
 import { useDriveFiles } from "../hooks/useDriveFiles";
 import { createFolderNode, renameFolderNode } from "../utils/folderManager";
 
 export default function SelectedChat({ selectedChat, onClearChat, onLogOut }) {
+  const navigate = useNavigate();
+  const { chatId, folderId, messageId } = useParams();
   const { messages, setMessages, loading, error, refresh } = useDriveFiles(selectedChat?.id);
   
-  const [activeFolder, setActiveFolder] = useState(null); // This is now the UID
-  const [activeFolderName, setActiveFolderName] = useState(""); // Display name
+  const activeFolder = folderId || null;
+  const currentFolder = messages.find(f => f.uid === folderId);
+  const activeFolderName = currentFolder ? currentFolder.name : "Loading Folder...";
   
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [newFileName, setNewFileName] = useState("");
@@ -72,11 +77,6 @@ export default function SelectedChat({ selectedChat, onClearChat, onLogOut }) {
         setRenameProgressText(progress);
       });
       
-      // If we are currently inside the folder we renamed, update the display name locally
-      if (activeFolder === oldFolder.uid) {
-        setActiveFolderName(newName);
-      }
-
       await refresh();
       setIsRenameModalOpen(false);
       setFolderToRename(null);
@@ -136,10 +136,18 @@ export default function SelectedChat({ selectedChat, onClearChat, onLogOut }) {
     }
   };
 
+  const handleCloseViewer = () => {
+    if (folderId) {
+      navigate(`/drive/${chatId}/folder/${folderId}`);
+    } else {
+      navigate(`/drive/${chatId}`);
+    }
+  };
+
   if (!selectedChat) return null;
 
   return (
-    <div className="relative z-10 w-full h-screen overflow-hidden bg-transparent flex flex-col transition-all">
+    <div className="relative w-full h-screen overflow-hidden flex flex-col bg-[#07080f]">
       <DashboardHeader 
         chatName={selectedChat.name}
         activeFolder={activeFolder}
@@ -151,54 +159,59 @@ export default function SelectedChat({ selectedChat, onClearChat, onLogOut }) {
 
       <div className="flex-1 w-full overflow-hidden flex flex-row relative z-0">
         {loading ? (
-          <div className="flex flex-col items-center justify-center flex-1 h-full w-full opacity-70">
-            <div className="w-10 h-10 border-4 border-yellow-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-            <p className="text-yellow-500 text-sm font-medium">Indexing filesystem blocks...</p>
+          <div className="flex flex-col items-center justify-center flex-1 h-full w-full gap-4">
+            <div className="relative w-12 h-12">
+              <div className="absolute inset-0 rounded-full border-2 border-indigo-900" />
+              <div className="absolute inset-0 rounded-full border-2 border-indigo-500 border-t-transparent animate-spin-smooth" />
+            </div>
+            <p className="text-slate-500 text-sm">Loading folders…</p>
           </div>
         ) : error ? (
-          <div className="flex items-center justify-center flex-1 h-full w-full p-6 text-center">
-            <p className="text-red-400 font-medium bg-red-900/20 p-5 rounded-lg border border-red-900/50 shadow-sm">
-              Fatal error resolving directory linkage mapping entity scope. Please select an alternative storage peer.
-            </p>
+          <div className="flex flex-col items-center justify-center flex-1 h-full w-full p-6 gap-4 text-center">
+            <div className="w-14 h-14 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center">
+              <svg className="w-6 h-6 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <p className="text-red-400 text-sm font-medium max-w-xs">Failed to load files. Please try switching to a different drive.</p>
           </div>
         ) : activeFolder ? (
           <>
             <FolderSidebar 
               folders={messages} 
               activeFolder={activeFolder} 
-              onFolderClick={(uid, name) => { setActiveFolder(uid); setActiveFolderName(name); }} 
-              onBack={() => { setActiveFolder(null); setActiveFolderName(""); }} 
+              onFolderClick={(uid) => navigate(`/drive/${chatId}/folder/${uid}`)} 
+              onBack={() => navigate(`/drive/${chatId}`)} 
               onOpenCreateModal={() => setIsCreateModalOpen(true)}
               onRenameClick={(folder) => { setFolderToRename(folder); setIsRenameModalOpen(true); }}
             />
-            <div className="flex-1 overflow-y-auto custom-scrollbar px-12 lg:px-24 py-8">
+            <div className="flex-1 overflow-y-auto custom-scrollbar px-8 lg:px-16 py-8">
               <FolderView 
                 selectedChat={selectedChat} 
                 folderName={activeFolderName} 
                 folderUID={activeFolder}
                 refreshTrigger={folderRefreshTrigger}
-                onBack={() => { setActiveFolder(null); setActiveFolderName(""); }} 
+                onBack={() => navigate(`/drive/${chatId}`)} 
                 onOpenUploadModal={() => setIsUploadModalOpen(true)}
               />
             </div>
           </>
         ) : (
-          <div className="flex-1 overflow-y-auto custom-scrollbar px-12 lg:px-24 py-8">
-            <div className="flex items-center justify-between mb-8 animate-in slide-in-from-top-4 duration-300">
-              <h1 className="text-xl font-semibold text-gray-200 tracking-tight">My Files</h1>
-              <span className="text-sm font-medium text-gray-400 bg-[#1a1a1a] px-3 py-1 rounded-full border border-[#333]">
-                {messages.length} Items Indexed
+          <div className="flex-1 overflow-y-auto custom-scrollbar px-8 lg:px-16 py-8">
+            <div className="flex items-center justify-between mb-7 animate-fade-up">
+              <h1 className="text-lg font-semibold text-slate-200 tracking-tight">My Folders</h1>
+              <span className="text-xs font-medium text-slate-500 bg-white/[0.04] border border-white/[0.07] px-3 py-1.5 rounded-full">
+                {messages.length} {messages.length === 1 ? 'folder' : 'folders'}
               </span>
             </div>
             <StorageGrid 
               messages={messages} 
-              onFolderClick={(uid, name) => { setActiveFolder(uid); setActiveFolderName(name); }} 
+              onFolderClick={(uid) => navigate(`/drive/${chatId}/folder/${uid}`)} 
               onRenameClick={(folder) => { setFolderToRename(folder); setIsRenameModalOpen(true); }}
             />
           </div>
         )}
       </div>
-
 
       <CreateFileModal 
         isOpen={isCreateModalOpen}
@@ -226,6 +239,11 @@ export default function SelectedChat({ selectedChat, onClearChat, onLogOut }) {
         uploadProgressText={uploadProgressText}
         activeFolder={activeFolder}
       />
+
+      {/* Render FileViewerModal at SelectedChat level based on routes */}
+      {messageId && (
+        <FileViewerModal onClose={handleCloseViewer} />
+      )}
     </div>
   );
 }

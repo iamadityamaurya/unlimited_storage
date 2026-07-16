@@ -1,13 +1,44 @@
 @import "tailwindcss";
 
+/* ─── Design Token Overrides ─────────────────────────────── */
+:root {
+  --bg-base:       #07080f;
+  --bg-surface-1:  #0d0f1c;
+  --bg-surface-2:  #111320;
+  --bg-surface-3:  #161828;
+  --border-subtle: rgba(255,255,255,0.07);
+  --border-mid:    rgba(255,255,255,0.11);
+  --accent:        #6366f1;
+  --accent-light:  #818cf8;
+  --accent-faint:  rgba(99,102,241,0.12);
+  --accent-glow:   rgba(99,102,241,0.35);
+  --text-primary:  #f1f5f9;
+  --text-secondary:#94a3b8;
+  --text-muted:    #475569;
+  --success:       #34d399;
+  --error:         #f87171;
+}
+
+/* ─── Base ────────────────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
 body {
   margin: 0;
   padding: 0;
-  background-color: #0f172a; /* matches bg-slate-900 */
-  color: #e2e8f0; /* matches text-slate-200 */
+  background-color: var(--bg-base);
+  color: var(--text-primary);
   min-height: 100vh;
   overflow-x: hidden;
-  color-scheme: dark; /* Forces native <select> widgets to dark mode */
+  color-scheme: dark;
 }
 
 #root {
@@ -17,6 +48,71 @@ body {
   width: 100%;
 }
 
+/* ─── Reusable Glass Panel ───────────────────────────────── */
+.glass {
+  background: rgba(13, 15, 28, 0.7);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--border-subtle);
+}
+
+.glass-strong {
+  background: rgba(17, 19, 32, 0.85);
+  backdrop-filter: blur(32px);
+  -webkit-backdrop-filter: blur(32px);
+  border: 1px solid var(--border-mid);
+}
+
+/* ─── Ambient Orbs (use on page wrappers) ───────────────── */
+.ambient-orb-1 {
+  position: fixed;
+  top: -20%;
+  left: -10%;
+  width: 600px;
+  height: 600px;
+  background: radial-gradient(circle, rgba(99,102,241,0.15) 0%, transparent 70%);
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.ambient-orb-2 {
+  position: fixed;
+  bottom: -20%;
+  right: -10%;
+  width: 500px;
+  height: 500px;
+  background: radial-gradient(circle, rgba(139,92,246,0.12) 0%, transparent 70%);
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.ambient-orb-3 {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 800px;
+  height: 400px;
+  background: radial-gradient(ellipse, rgba(99,102,241,0.05) 0%, transparent 70%);
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ─── Indigo Glow Ring ─────────────────────────────────── */
+.glow-ring:focus-within {
+  box-shadow: 0 0 0 3px var(--accent-glow);
+  border-color: var(--accent-light) !important;
+}
+.glow-ring-sm:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--accent-glow);
+  border-color: var(--accent-light) !important;
+}
+
+/* ─── Phone Input ─────────────────────────────────────── */
 .custom-phone-input {
   display: flex;
   align-items: center;
@@ -24,53 +120,76 @@ body {
 .custom-phone-input .PhoneInputCountry {
   margin-right: 0.75rem;
   padding-right: 0.75rem;
-  border-right: 1px solid #334155; /* border-slate-700 */
+  border-right: 1px solid var(--border-mid);
 }
 .custom-phone-input .PhoneInputInput {
   flex: 1;
   background: transparent !important;
-  color: #f8fafc !important; /* text-slate-50 */
+  color: var(--text-primary) !important;
   border: none !important;
   outline: none !important;
-  font-size: 1rem;
+  font-size: 0.9375rem;
+  font-family: 'Inter', sans-serif;
 }
 .custom-phone-input .PhoneInputCountryIcon {
   box-shadow: none !important;
-  border-radius: 2px;
+  border-radius: 3px;
 }
 .custom-phone-input .PhoneInputCountrySelectArrow {
   border-right-width: 2px !important;
   border-bottom-width: 2px !important;
-  border-color: #cbd5e1 !important;
-  opacity: 0.7;
+  border-color: var(--text-secondary) !important;
+  opacity: 0.6;
 }
-
 .custom-phone-input .PhoneInputCountrySelect,
 .custom-phone-input .PhoneInputCountrySelect option {
-  background-color: #0f172a !important; /* matches bg-slate-900 */
-  color: #e2e8f0 !important; /* matches text-slate-200 */
+  background-color: var(--bg-surface-2) !important;
+  color: var(--text-primary) !important;
 }
 
-/* Premium Custom Scrollbars */
+/* ─── Premium Scrollbars ─────────────────────────────────── */
 .custom-scrollbar::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
 }
-
 .custom-scrollbar::-webkit-scrollbar-track {
   background: transparent;
 }
-
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: #333;
-  border-radius: 10px;
+  background: rgba(99,102,241,0.25);
+  border-radius: 99px;
 }
-
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: #444;
+  background: rgba(99,102,241,0.45);
 }
-
 .custom-scrollbar {
   scrollbar-width: thin;
-  scrollbar-color: #333 transparent;
+  scrollbar-color: rgba(99,102,241,0.25) transparent;
 }
+
+/* ─── Animations ────────────────────────────────────────── */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to   { opacity: 1; transform: scale(1); }
+}
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 0 0 var(--accent-glow); }
+  50%       { box-shadow: 0 0 0 8px transparent; }
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.animate-fade-up  { animation: fadeUp 0.35s ease both; }
+.animate-fade-in  { animation: fadeIn 0.25s ease both; }
+.animate-scale-in { animation: scaleIn 0.2s ease both; }
+.animate-pulse-glow { animation: pulse-glow 2s infinite; }
+.animate-spin-smooth { animation: spin 0.9s linear infinite; }

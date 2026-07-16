@@ -1,62 +1,89 @@
 import React from 'react';
 
-export default function CreateFileModal({ 
-  isOpen, 
-  onClose, 
-  onCreate, 
-  isCreating, 
-  newFileName, 
-  setNewFileName 
+export default function CreateFileModal({
+  isOpen,
+  onClose,
+  onCreate,
+  isCreating,
+  newFileName,
+  setNewFileName,
 }) {
   if (!isOpen) return null;
 
-  const hasIllegalChars = newFileName.includes('###') || newFileName.includes('_');
+  const hasIllegal = newFileName.includes('###') || newFileName.includes('_');
+  const isDisabled = isCreating || !newFileName.trim() || hasIllegal;
 
   return (
-    <div className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-200">
-      <form 
-        onSubmit={onCreate} 
-        className="w-full max-w-sm bg-[#252525] border border-[#333] rounded-xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200"
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+      {/* Backdrop */}
+      <div
+        className="absolute inset-0 bg-black/70 backdrop-blur-md animate-fade-in"
+        onClick={!isCreating ? onClose : undefined}
+      />
+
+      {/* Modal */}
+      <form
+        onSubmit={onCreate}
+        className="relative w-full max-w-sm glass-strong rounded-3xl shadow-2xl shadow-black/60 overflow-hidden animate-scale-in"
       >
-        <div className="p-6">
-          <h3 className="text-lg font-bold text-gray-100 mb-1">Create New Folder</h3>
-          <p className="text-gray-400 text-xs mb-5">Instanciate a new datastream node into the active Telegram drive.</p>
-          
+        {/* Header */}
+        <div className="px-7 pt-7 pb-5 border-b border-white/[0.07]">
+          <div className="flex items-center gap-4">
+            <div className="w-10 h-10 rounded-2xl bg-indigo-500/15 border border-indigo-500/25 flex items-center justify-center flex-shrink-0">
+              <svg className="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 13h6m-3-3v6m-9 1V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+              </svg>
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold text-slate-100 tracking-tight">Create Folder</h2>
+              <p className="text-slate-500 text-xs mt-0.5">Add a new folder to your drive</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Body */}
+        <div className="px-7 py-6">
+          <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-widest mb-2 block">
+            Folder Name
+          </label>
           <input
             type="text"
             autoFocus
             value={newFileName}
-            onChange={(e) => setNewFileName(e.target.value)}
-            placeholder="Folder Name"
-            className={`w-full px-4 py-3 bg-[#1a1a1a] border rounded-lg text-white placeholder-gray-500 focus:outline-none transition-all text-sm ${hasIllegalChars ? 'border-red-500 focus:border-red-500 focus:ring-1 focus:ring-red-500/50' : 'border-[#333] focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500/50'}`}
+            onChange={e => setNewFileName(e.target.value)}
+            placeholder="e.g. Documents"
+            className={`w-full px-4 py-3 rounded-xl text-[0.9375rem] font-medium text-slate-100 placeholder:text-slate-600 bg-[#0d0f1c] border transition-all duration-200 focus:outline-none focus:ring-2 ${
+              hasIllegal
+                ? 'border-red-500/40 focus:border-red-500/60 focus:ring-red-500/20'
+                : 'border-white/[0.08] focus:border-indigo-500 focus:ring-indigo-500/25'
+            }`}
             required
           />
-          {hasIllegalChars && (
-            <p className="text-red-500 text-[10px] font-bold mt-2 uppercase tracking-tight">
-              Error: {newFileName.includes('_') ? 'Underscores ("_") are reserved' : 'The string "###" is reserved'}.
+          {hasIllegal && (
+            <p className="text-red-400 text-[11px] font-medium mt-2">
+              {newFileName.includes('_') ? 'Underscores are reserved characters' : '"###" is a reserved sequence'}
             </p>
           )}
         </div>
-        
-        <div className="bg-[#1e1e1e] px-6 py-4 border-t border-[#333] flex justify-end gap-3">
+
+        {/* Footer */}
+        <div className="px-7 pb-7 flex justify-end gap-3">
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 text-sm font-medium text-gray-400 hover:text-white transition-colors"
             disabled={isCreating}
+            className="px-5 py-2.5 rounded-xl text-sm font-medium text-slate-400 hover:text-slate-200 hover:bg-white/[0.06] transition-all duration-200 disabled:opacity-40"
           >
             Cancel
           </button>
           <button
             type="submit"
-            disabled={isCreating || !newFileName.trim() || hasIllegalChars}
-            className="px-4 py-2 bg-yellow-500 hover:bg-yellow-400 text-black text-sm font-bold rounded-lg shadow-sm disabled:opacity-50 disabled:cursor-not-allowed transition-colors min-w-[100px] flex justify-center items-center"
+            disabled={isDisabled}
+            className="px-5 py-2.5 rounded-xl text-sm font-semibold bg-indigo-600 hover:bg-indigo-500 text-white shadow-md shadow-indigo-500/20 transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed active:scale-95 min-w-[110px] flex justify-center items-center"
           >
             {isCreating ? (
-              <div className="w-5 h-5 border-2 border-black border-t-transparent rounded-full animate-spin"></div>
-            ) : (
-              "Create Node"
-            )}
+              <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin-smooth" />
+            ) : "Create Folder"}
           </button>
         </div>
       </form>

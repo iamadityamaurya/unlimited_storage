@@ -1,120 +1,212 @@
 import React, { useEffect, useState } from "react";
+import { useParams } from "react-router-dom";
 import { getCookie } from "../../utils/cookies";
 import { getConnectedClient } from "../../telegramApi";
 
-export default function FileViewerModal({ msg, onClose }) {
+export default function FileViewerModal({ msg: propMsg, onClose }) {
+  const { chatId, messageId } = useParams();
+  const [resolvedMsg, setResolvedMsg] = useState(propMsg || null);
   const [fileUrl, setFileUrl] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const [error, setError]     = useState(null);
 
-  // Safely evaluate media descriptors dynamically handling missing parameters
-  const isImage = msg?.media?.photo || (msg?.media?.document?.mimeType || "").startsWith("image/");
-  const isVideo = (msg?.media?.document?.mimeType || "").startsWith("video/");
-  // Remove suffix to get physical clean string
-  const rawFileName = msg?.message ? msg.message.split("_")[0] : "Unnamed_Binary";
+  // Sync resolvedMsg if propMsg changes
+  useEffect(() => {
+    if (propMsg) {
+      setResolvedMsg(propMsg);
+    }
+  }, [propMsg]);
 
   useEffect(() => {
     let active = true;
-
-    const fetchFullFile = async () => {
+    const load = async () => {
       try {
-        setLoading(true);
-        setError(null);
-        
-        const apiId = getCookie("telegram_apiId");
+        setLoading(true); setError(null);
+        const apiId   = getCookie("telegram_apiId");
         const apiHash = getCookie("telegram_apiHash");
-        const token = getCookie("telegram_token");
+        const token   = getCookie("telegram_token");
         if (!apiId || !apiHash || !token) return;
-
         const client = await getConnectedClient(apiId, apiHash, token);
-        
-        // Native GramJS call executing without arbitrary size parameters inherently grabs the absolute full-quality binary buffer!
-        const buffer = await client.downloadMedia(msg);
-        
-        if (active && buffer) {
-          let mimeType = "application/octet-stream";
-          if (msg.media.document && msg.media.document.mimeType) {
-            mimeType = msg.media.document.mimeType;
-          } else if (msg.media.photo) {
-            mimeType = "image/jpeg";
-          }
 
-          // Directly typecast physical memory chunks safely into native DOM Blob strings for perfect isolated rendering
-          const blob = new Blob([buffer], { type: mimeType });
-          const url = URL.createObjectURL(blob);
-          setFileUrl(url);
+        let targetMsg = resolvedMsg;
+        if (!targetMsg && messageId) {
+          const messages = await client.getMessages(chatId, { ids: [parseInt(messageId)] });
+          if (messages && messages.length > 0) {
+            targetMsg = messages[0];
+            if (active) setResolvedMsg(targetMsg);
+          }
+        }
+
+        if (!targetMsg) {
+          if (active) setError("File message not found.");
+          return;
+        }
+
+        const buffer = await client.downloadMedia(targetMsg);
+        if (active && buffer) {
+          let mime = "application/octet-stream";
+          if (targetMsg.media?.document?.mimeType) mime = targetMsg.media.document.mimeType;
+          else if (targetMsg.media?.photo) mime = "image/jpeg";
+          const blob = new Blob([buffer], { type: mime });
+          setFileUrl(URL.createObjectURL(blob));
         } else if (active) {
-            setError("Failed to resolve physical binary stream correctly.");
+          setError("Failed to load the file.");
         }
       } catch (err) {
-        console.error("Failed to load full file stream", err);
-        if (active) setError(err.message || "Unknown Buffer Error.");
+        if (active) setError(err.message || "Unknown error.");
       } finally {
         if (active) setLoading(false);
       }
     };
-
-    if (msg) {
-      fetchFullFile();
-    }
-
+    load();
     return () => { active = false; };
-  }, [msg]);
+  }, [messageId, chatId, resolvedMsg]);
 
-  if (!msg) return null;
+  const isImage = resolvedMsg?.media?.photo || (resolvedMsg?.media?.document?.mimeType || "").startsWith("image/");
+  const isVideo = (resolvedMsg?.media?.document?.mimeType || "").startsWith("video/");
+  const rawName = resolvedMsg?.message ? resolvedMsg.message.split("_")[0] : "File";
+
+  if (!resolvedMsg && loading) {
+    return (
+      <div className="fixed inset-0 z-[200] flex flex-col items-center justify-center bg-black/95 backdrop-blur-xl animate-fade-in">
+        <div className="flex flex-col items-center gap-4">
+          <div className="relative w-14 h-14">
+            <div className="absolute inset-0 rounded-full border-2 border-indigo-900" />
+            <div className="absolute inset-0 rounded-full border-2 border-indigo-500 border-t-transparent animate-spin-smooth" />
+          </div>
+          <p className="text-slate-400 text-sm font-medium">Resolving file meta from Telegram...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!resolvedMsg && error) {
+    return (
+      <div className="fixed inset-0 z-[200] flex flex-col items-center justify-center bg-black/95 backdrop-blur-xl animate-fade-in">
+        <div className="absolute inset-0 cursor-pointer" onClick={onClose} />
+        <div className="relative z-10 flex flex-col items-center gap-4 text-center max-w-sm p-8">
+          <div className="w-16 h-16 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center">
+            <svg className="w-7 h-7 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <div>
+            <p className="text-slate-200 font-semibold">Failed to resolve file link</p>
+            <p className="text-slate-500 text-sm mt-1">{error}</p>
+          </div>
+          <button
+            onClick={onClose}
+            className="mt-4 px-5 py-2.5 rounded-xl bg-white/[0.06] hover:bg-white/[0.1] border border-white/[0.1] text-slate-300 text-sm font-medium transition-all"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="fixed inset-0 z-[200] bg-black/95 flex flex-col items-center justify-center p-4 backdrop-blur-xl animate-in fade-in zoom-in-95 duration-200">
-      
-      {/* Background Click-to-Close Handler */}
-      <div className="absolute inset-0 z-0 cursor-pointer" onClick={onClose} title="Click anywhere to close"></div>
+    <div className="fixed inset-0 z-[200] flex flex-col items-center justify-center bg-black/95 backdrop-blur-xl animate-fade-in">
 
-      {/* Top Utility Bar */}
-      <div className="absolute top-0 left-0 w-full p-6 flex justify-between items-center bg-gradient-to-b from-black/80 to-transparent z-20 pointer-events-none">
-        <div className="text-white font-semibold text-xl drop-shadow-md truncate max-w-2xl px-2 pointer-events-auto">{rawFileName}</div>
-        
-        {/* Explicitly Labelled Close Action */}
-        <button 
-          onClick={onClose} 
-          className="px-5 py-2.5 bg-[#1a1a1a]/80 hover:bg-red-500 text-gray-300 hover:text-white font-bold rounded-lg transition-all shadow-xl active:scale-95 flex items-center gap-2 pointer-events-auto border border-[#333] hover:border-red-400/50 backdrop-blur-md"
+      {/* Background click to close */}
+      <div className="absolute inset-0 cursor-pointer" onClick={onClose} />
+
+      {/* Top bar */}
+      <div className="absolute top-0 left-0 w-full flex items-center justify-between px-6 py-4 z-10 pointer-events-none">
+        <div className="flex items-center gap-3 min-w-0 pointer-events-auto">
+          <div className="w-8 h-8 rounded-lg bg-indigo-500/20 border border-indigo-500/25 flex items-center justify-center flex-shrink-0">
+            {isImage ? (
+              <svg className="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+            ) : (
+              <svg className="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+              </svg>
+            )}
+          </div>
+          <span className="text-slate-300 font-medium text-sm truncate max-w-xs">{rawName}</span>
+        </div>
+
+        <button
+          onClick={onClose}
+          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/[0.06] hover:bg-red-500/20 border border-white/[0.1] hover:border-red-500/30 text-slate-400 hover:text-red-400 text-sm font-medium transition-all duration-200 active:scale-95 pointer-events-auto"
         >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-             <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"></path>
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" />
           </svg>
-          Close Viewer
+          Close
         </button>
       </div>
 
-      {loading ? (
-        <div className="flex flex-col items-center justify-center pt-10">
-           <div className="w-12 h-12 border-4 border-yellow-500 border-t-transparent rounded-full animate-spin mb-4 shadow-xl"></div>
-           <p className="text-yellow-500 font-bold tracking-tight">Downloading Full-Resolution Pipeline...</p>
-        </div>
-      ) : error ? (
-         <div className="text-red-400 bg-red-950/40 p-6 rounded-2xl border border-red-500/20 text-center shadow-2xl max-w-sm">
-            <svg className="w-12 h-12 mx-auto mb-4 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-            <p className="font-semibold text-lg tracking-tight">System Fetch Failed</p>
-            <p className="text-xs mt-2 text-red-400/80">{error}</p>
-         </div>
-      ) : fileUrl ? (
-          <div className="w-full h-full flex flex-col items-center justify-center p-8 mt-12 max-w-6xl max-h-[90vh]">
+      {/* Content area */}
+      <div className="relative z-10 w-full h-full flex items-center justify-center pt-16 p-8">
+        {loading ? (
+          <div className="flex flex-col items-center gap-4">
+            <div className="relative w-14 h-14">
+              <div className="absolute inset-0 rounded-full border-2 border-indigo-900" />
+              <div className="absolute inset-0 rounded-full border-2 border-indigo-500 border-t-transparent animate-spin-smooth" />
+            </div>
+            <p className="text-slate-400 text-sm">Downloading file...</p>
+          </div>
+        ) : error ? (
+          <div className="flex flex-col items-center gap-4 text-center max-w-sm">
+            <div className="w-16 h-16 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center">
+              <svg className="w-7 h-7 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <div>
+              <p className="text-slate-200 font-semibold">Failed to load</p>
+              <p className="text-slate-500 text-sm mt-1">{error}</p>
+            </div>
+          </div>
+        ) : fileUrl ? (
+          <div className="max-w-6xl max-h-[85vh] w-full flex items-center justify-center">
             {isImage ? (
-               <img src={fileUrl} alt={rawFileName} className="max-w-full max-h-full object-contain rounded shadow-2xl aspect-auto" />
+              <img
+                src={fileUrl}
+                alt={rawName}
+                className="max-w-full max-h-[85vh] object-contain rounded-2xl shadow-2xl ring-1 ring-white/10"
+                onClick={e => e.stopPropagation()}
+              />
             ) : isVideo ? (
-               <video src={fileUrl} controls autoPlay className="max-w-full max-h-full rounded shadow-2xl" />
+              <video
+                src={fileUrl}
+                controls
+                autoPlay
+                className="max-w-full max-h-[85vh] rounded-2xl shadow-2xl ring-1 ring-white/10"
+                onClick={e => e.stopPropagation()}
+              />
             ) : (
-               <div className="flex flex-col items-center justify-center bg-[#1a1a1a] p-12 rounded-3xl border border-[#333] shadow-2xl">
-                  <svg className="w-24 h-24 text-gray-500 mb-6 drop-shadow-md" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
-                  <p className="text-gray-100 font-bold text-2xl mb-2 tracking-tight">Non-Visual Payload</p>
-                  <p className="text-gray-500 text-sm mb-8">This file requires an external system application to parse safely.</p>
-                  <a href={fileUrl} download={rawFileName} className="px-8 py-3 bg-yellow-500 hover:bg-yellow-400 text-black font-extrabold text-sm uppercase tracking-wider rounded-xl transition-all shadow-md active:scale-95 flex items-center gap-2">
-                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-                     Download Raw Binary
-                  </a>
-               </div>
+              <div
+                className="flex flex-col items-center gap-6 p-12 glass-strong rounded-3xl shadow-2xl"
+                onClick={e => e.stopPropagation()}
+              >
+                <div className="w-20 h-20 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center">
+                  <svg className="w-10 h-10 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                  </svg>
+                </div>
+                <div className="text-center">
+                  <p className="text-slate-100 font-semibold text-xl">{rawName}</p>
+                  <p className="text-slate-500 text-sm mt-1">This file requires an external app to open.</p>
+                </div>
+                <a
+                  href={fileUrl}
+                  download={rawName}
+                  className="flex items-center gap-2.5 px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm shadow-lg shadow-indigo-500/20 transition-all duration-200 active:scale-95"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                  </svg>
+                  Download File
+                </a>
+              </div>
             )}
           </div>
-      ) : null}
+        ) : null}
+      </div>
     </div>
   );
 }

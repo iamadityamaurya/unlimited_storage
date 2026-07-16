@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { getConnectedClient } from "../telegramApi";
 import { getCookie, setCookie, deleteCookie } from "../utils/cookies";
 import ChatList from "../components/ChatList";
@@ -7,21 +7,16 @@ import SelectedChat from "../components/SelectedChat";
 
 export default function Home() {
   const navigate = useNavigate();
-  const [chats, setChats] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const { chatId } = useParams();
+  const [chats, setChats]       = useState([]);
+  const [loading, setLoading]   = useState(true);
   const [errorMsg, setErrorMsg] = useState("");
-  
-  const [selectedChat, setSelectedChat] = useState(() => {
-    const id = getCookie("telegram_selected_chat_id");
-    const name = getCookie("telegram_selected_chat_name");
-    return id && name ? { id, name: decodeURIComponent(name) } : null;
-  });
 
   useEffect(() => {
     const fetchChats = async () => {
-      const apiId = getCookie("telegram_apiId");
+      const apiId   = getCookie("telegram_apiId");
       const apiHash = getCookie("telegram_apiHash");
-      const token = getCookie("telegram_token");
+      const token   = getCookie("telegram_token");
 
       if (!apiId || !apiHash || !token) {
         navigate("/login");
@@ -29,14 +24,12 @@ export default function Home() {
       }
 
       try {
-        const client = await getConnectedClient(apiId, apiHash, token);
+        const client  = await getConnectedClient(apiId, apiHash, token);
         const dialogs = await client.getDialogs();
-        
-        const chatList = dialogs.map((dialog) => ({
-          id: dialog.id ? dialog.id.toString() : Math.random().toString(),
-          name: dialog.name || dialog.title || "Unnamed Chat"
-        }));
-        setChats(chatList);
+        setChats(dialogs.map(d => ({
+          id:   d.id ? d.id.toString() : Math.random().toString(),
+          name: d.name || d.title || "Unnamed Chat",
+        })));
       } catch (err) {
         console.error(err);
         setErrorMsg("Failed to connect to Telegram or fetch chats.");
@@ -44,9 +37,20 @@ export default function Home() {
         setLoading(false);
       }
     };
-
     fetchChats();
   }, [navigate]);
+
+  useEffect(() => {
+    // If visiting root "/" directly, redirect based on last selected drive
+    if (window.location.pathname === "/") {
+      const lastId = getCookie("telegram_selected_chat_id");
+      if (lastId) {
+        navigate(`/drive/${lastId}`, { replace: true });
+      } else {
+        navigate("/drives", { replace: true });
+      }
+    }
+  }, [navigate, chatId]);
 
   const handleLogOut = () => {
     deleteCookie("telegram_token");
@@ -56,45 +60,61 @@ export default function Home() {
   };
 
   const handleSelectChat = (chat) => {
-    setSelectedChat(chat);
     setCookie("telegram_selected_chat_id", chat.id);
     setCookie("telegram_selected_chat_name", encodeURIComponent(chat.name));
+    navigate(`/drive/${chat.id}`);
   };
 
-  const clearSelectedChat = () => {
-    deleteCookie("telegram_selected_chat_id");
-    deleteCookie("telegram_selected_chat_name");
-    setSelectedChat(null);
-  };
+  const selectedChat = chatId 
+    ? (chats.find(c => c.id === chatId) || { id: chatId, name: "Loading Drive..." })
+    : null;
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[600px] w-full bg-slate-900 p-6 rounded-2xl relative overflow-hidden">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-indigo-300 font-medium">Loading your chats...</p>
+      <div className="relative min-h-screen w-full flex items-center justify-center overflow-hidden bg-[#07080f]">
+        <div className="ambient-orb-1" />
+        <div className="ambient-orb-2" />
+        <div className="relative z-10 flex flex-col items-center gap-5 animate-fade-in">
+          <div className="relative w-14 h-14">
+            <div className="absolute inset-0 rounded-full border-2 border-indigo-900" />
+            <div className="absolute inset-0 rounded-full border-2 border-indigo-500 border-t-transparent animate-spin-smooth" />
+          </div>
+          <div className="text-center">
+            <p className="text-slate-300 font-semibold">Loading your drives</p>
+            <p className="text-slate-600 text-sm mt-1">Fetching Telegram dialogues…</p>
+          </div>
         </div>
       </div>
     );
   }
 
-  return (
-    <div className={`flex flex-col items-center w-full min-h-screen bg-[#1E1E1E] ${selectedChat ? 'p-0' : 'p-6 rounded-2xl'} relative overflow-hidden transition-all duration-500`}>
+  if (selectedChat) {
+    return (
+      <SelectedChat
+        selectedChat={selectedChat}
+        onClearChat={() => navigate("/drives")}
+        onLogOut={handleLogOut}
+      />
+    );
+  }
 
-      {selectedChat ? (
-        <SelectedChat 
-          selectedChat={selectedChat} 
-          onClearChat={clearSelectedChat} 
-          onLogOut={handleLogOut} 
+  return (
+    <div className="relative min-h-screen w-full flex items-center justify-center p-6 overflow-hidden bg-[#07080f]">
+      <div className="ambient-orb-1" />
+      <div className="ambient-orb-2" />
+      {/* grid texture */}
+      <div className="fixed inset-0 opacity-[0.02]" style={{
+        backgroundImage: 'linear-gradient(rgba(99,102,241,0.5) 1px, transparent 1px), linear-gradient(90deg, rgba(99,102,241,0.5) 1px, transparent 1px)',
+        backgroundSize: '40px 40px',
+      }} />
+      <div className="relative z-10 w-full max-w-2xl animate-fade-up">
+        <ChatList
+          chats={chats}
+          onSelectChat={handleSelectChat}
+          onLogOut={handleLogOut}
+          errorMsg={errorMsg}
         />
-      ) : (
-        <ChatList 
-          chats={chats} 
-          onSelectChat={handleSelectChat} 
-          onLogOut={handleLogOut} 
-          errorMsg={errorMsg} 
-        />
-      )}
+      </div>
     </div>
   );
 }
