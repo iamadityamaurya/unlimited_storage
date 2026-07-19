@@ -112,8 +112,18 @@ export default function FileViewerModal({ msg: propMsg, onClose }) {
       <div className="absolute inset-0 cursor-pointer" onClick={onClose} />
 
       {/* Top bar */}
-      <div className="absolute top-0 left-0 w-full flex items-center justify-between px-6 py-4 z-10 pointer-events-none">
+      <div className="absolute top-0 left-0 w-full flex items-center justify-between px-6 py-4 z-20 pointer-events-none">
         <div className="flex items-center gap-3 min-w-0 pointer-events-auto">
+          <button
+            onClick={onClose}
+            className="p-2 rounded-xl bg-white/[0.06] hover:bg-white/[0.1] border border-white/[0.1] text-slate-400 hover:text-slate-200 transition-all duration-200 active:scale-95 flex items-center justify-center mr-1"
+            title="Close viewer"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            </svg>
+          </button>
+
           <div className="w-8 h-8 rounded-lg bg-indigo-500/20 border border-indigo-500/25 flex items-center justify-center flex-shrink-0">
             {isImage ? (
               <svg className="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -127,16 +137,6 @@ export default function FileViewerModal({ msg: propMsg, onClose }) {
           </div>
           <span className="text-slate-300 font-medium text-sm truncate max-w-xs">{rawName}</span>
         </div>
-
-        <button
-          onClick={onClose}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/[0.06] hover:bg-red-500/20 border border-white/[0.1] hover:border-red-500/30 text-slate-400 hover:text-red-400 text-sm font-medium transition-all duration-200 active:scale-95 pointer-events-auto"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" />
-          </svg>
-          Close
-        </button>
       </div>
 
       {/* Content area */}

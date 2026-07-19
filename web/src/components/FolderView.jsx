@@ -28,8 +28,10 @@ export default function FolderView({
   folderName,
   folderUID,
   refreshTrigger,
+  searchQuery,
   onBack,
   onOpenUploadModal,
+  onOpenFileDelete,
 }) {
   const navigate = useNavigate();
   const [files, setFiles]           = useState([]);
@@ -41,8 +43,21 @@ export default function FolderView({
   const [activeMenuIdx, setActiveMenuIdx]       = useState(null);
   const [downloadingIdx, setDownloadingIdx]     = useState(null);
 
-  const sortedFiles = React.useMemo(() => {
-    return [...files].sort((a, b) => {
+  // Filter first, then sort
+  const processedFiles = React.useMemo(() => {
+    let result = [...files];
+
+    // Search query filtering
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase().trim();
+      result = result.filter(f => {
+        const displayName = (f.message.split(`_${folderUID}`)[0] || "").toLowerCase();
+        return displayName.includes(query);
+      });
+    }
+
+    // Sorting
+    return result.sort((a, b) => {
       if (sortBy === "name") {
         const na = (a.message.split(`_${folderUID}`)[0] || "").toLowerCase();
         const nb = (b.message.split(`_${folderUID}`)[0] || "").toLowerCase();
@@ -58,7 +73,7 @@ export default function FolderView({
       }
       return 0;
     });
-  }, [files, sortBy, sortOrder, folderUID]);
+  }, [files, searchQuery, sortBy, sortOrder, folderUID]);
 
   const activeSortLabel = SORT_OPTIONS.find(o => o.b === sortBy && o.o === sortOrder)?.label || "Sort";
 
@@ -236,21 +251,34 @@ export default function FolderView({
             Upload Files
           </button>
         </div>
+      ) : processedFiles.length === 0 ? (
+        <div className="flex flex-col items-center justify-center flex-1 py-16 gap-4 text-center">
+          <div className="w-16 h-16 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center">
+            <svg className="w-7 h-7 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </div>
+          <div>
+            <p className="text-slate-300 font-semibold">No matching files</p>
+            <p className="text-slate-600 text-sm mt-1">Try adjusting your search query.</p>
+          </div>
+        </div>
       ) : (
         <div className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-4 pb-20 w-full">
-          {sortedFiles.map((msg, idx) => {
+          {processedFiles.map((msg, idx) => {
             const displayName = msg.message.split(`_${folderUID}`)[0].trim() || "Unnamed File";
             let fileSize = "—";
             if (msg.media?.document?.size) fileSize = formatBytes(msg.media.document.size);
             else if (msg.media?.photo) fileSize = "Image";
             const isImg = msg.media?.photo || (msg.media?.document?.mimeType || "").startsWith("image/");
+            const isMenuOpen = activeMenuIdx === idx;
 
             return (
               <div
                 key={idx}
                 onClick={() => { isImg ? navigate(`/drive/${selectedChat.id}/folder/${folderUID}/file/${msg.id}`) : handleDownloadFile(msg, displayName, idx); }}
                 className={`group relative flex flex-col items-center justify-start p-4 pt-5 rounded-2xl cursor-pointer transition-all duration-200 border ${
-                  activeMenuIdx === idx
+                  isMenuOpen
                     ? 'bg-indigo-500/10 border-indigo-500/30 z-50'
                     : 'bg-white/[0.025] hover:bg-indigo-500/[0.07] border-transparent hover:border-indigo-500/20 z-0'
                 }`}
@@ -263,7 +291,7 @@ export default function FolderView({
                     </div>
                   ) : (
                     <button
-                      onClick={e => { e.stopPropagation(); setActiveMenuIdx(idx === activeMenuIdx ? null : idx); }}
+                      onClick={e => { e.stopPropagation(); setActiveMenuIdx(isMenuOpen ? null : idx); }}
                       className="w-7 h-7 flex flex-col items-center justify-center gap-[2.5px] rounded-lg bg-transparent hover:bg-white/[0.08] transition-all opacity-0 group-hover:opacity-100 focus:opacity-100"
                     >
                       {[0,1,2].map(i => (
@@ -272,7 +300,7 @@ export default function FolderView({
                     </button>
                   )}
 
-                  {activeMenuIdx === idx && (
+                  {isMenuOpen && (
                     <div
                       className="absolute top-9 right-0 w-36 bg-[#111320] border border-white/[0.1] shadow-2xl rounded-xl py-2 z-50 animate-scale-in"
                       onMouseLeave={() => setActiveMenuIdx(null)}
@@ -285,6 +313,15 @@ export default function FolderView({
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                         </svg>
                         Download
+                      </button>
+                      <button
+                        onClick={e => { e.stopPropagation(); onOpenFileDelete(msg); setActiveMenuIdx(null); }}
+                        className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[13px] font-medium text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-colors"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                        Delete
                       </button>
                     </div>
                   )}

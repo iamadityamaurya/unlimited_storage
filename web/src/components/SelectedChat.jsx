@@ -10,10 +10,12 @@ import DashboardHeader from "./layout/DashboardHeader";
 import CreateFileModal from "./modals/CreateFileModal";
 import UploadFileModal from "./modals/UploadFileModal";
 import RenameFolderModal from "./modals/RenameFolderModal";
+import DeleteConfirmModal from "./modals/DeleteConfirmModal";
+import StorageAnalyticsModal from "./modals/StorageAnalyticsModal";
 import FolderSidebar from "./FolderSidebar";
 import FileViewerModal from "./modals/FileViewerModal";
 import { useDriveFiles } from "../hooks/useDriveFiles";
-import { createFolderNode, renameFolderNode } from "../utils/folderManager";
+import { createFolderNode, renameFolderNode, deleteFolderNode, deleteFolderFiles } from "../utils/folderManager";
 
 export default function SelectedChat({ selectedChat, onClearChat, onLogOut }) {
   const navigate = useNavigate();
@@ -24,6 +26,9 @@ export default function SelectedChat({ selectedChat, onClearChat, onLogOut }) {
   const currentFolder = messages.find(f => f.uid === folderId);
   const activeFolderName = currentFolder ? currentFolder.name : "Loading Folder...";
   
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isAnalyticsOpen, setIsAnalyticsOpen] = useState(false);
+
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [newFileName, setNewFileName] = useState("");
   const [isCreating, setIsCreating] = useState(false);
@@ -33,6 +38,12 @@ export default function SelectedChat({ selectedChat, onClearChat, onLogOut }) {
   const [folderToRename, setFolderToRename] = useState(null); // { uid, name }
   const [isRenaming, setIsRenaming] = useState(false);
   const [renameProgressText, setRenameProgressText] = useState("");
+
+  // Delete States
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState(null); // { type: 'folder'|'file', obj: folderObj | fileMsg }
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteProgressText, setDeleteProgressText] = useState("");
 
   // Binary Upload States
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
@@ -85,6 +96,55 @@ export default function SelectedChat({ selectedChat, onClearChat, onLogOut }) {
       alert(`Structural Rename Error:\n\n${err.message || String(err)}`);
     } finally {
       setIsRenaming(false);
+    }
+  };
+
+  const handleOpenDeleteFolder = (folder) => {
+    setDeleteTarget({ type: 'folder', obj: folder });
+    setIsDeleteModalOpen(true);
+  };
+
+  const handleOpenFileDelete = (msg) => {
+    setDeleteTarget({ type: 'file', obj: msg });
+    setIsDeleteModalOpen(true);
+  };
+
+  const handleDeleteConfirm = async (recursive) => {
+    if (!deleteTarget) return;
+
+    try {
+      setIsDeleting(true);
+      const apiId = getCookie("telegram_apiId");
+      const apiHash = getCookie("telegram_apiHash");
+      const token = getCookie("telegram_token");
+      
+      const client = await getConnectedClient(apiId, apiHash, token);
+      
+      if (deleteTarget.type === 'folder') {
+        setDeleteProgressText("Updating directory index...");
+        await deleteFolderNode(client, selectedChat.id, deleteTarget.obj.uid, deleteTarget.obj.name);
+        
+        if (recursive) {
+          setDeleteProgressText("Scanning and deleting nested files...");
+          await deleteFolderFiles(client, selectedChat.id, deleteTarget.obj.uid, (prog) => {
+            setDeleteProgressText(prog);
+          });
+        }
+        await refresh();
+      } else if (deleteTarget.type === 'file') {
+        setDeleteProgressText("Removing file block from Telegram...");
+        await client.deleteMessages(selectedChat.id, [deleteTarget.obj.id], { revoke: true });
+        setFolderRefreshTrigger(prev => prev + 1);
+      }
+      
+      setIsDeleteModalOpen(false);
+      setDeleteTarget(null);
+    } catch (err) {
+      console.error("Deletion failed:", err);
+      alert(`Structural Deletion Error:\n\n${err.message || String(err)}`);
+    } finally {
+      setIsDeleting(false);
+      setDeleteProgressText("");
     }
   };
 
@@ -151,6 +211,9 @@ export default function SelectedChat({ selectedChat, onClearChat, onLogOut }) {
       <DashboardHeader 
         chatName={selectedChat.name}
         activeFolder={activeFolder}
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        onOpenAnalytics={() => setIsAnalyticsOpen(true)}
         onOpenCreateModal={() => setIsCreateModalOpen(true)}
         onOpenUploadModal={() => setIsUploadModalOpen(true)}
         onClearChat={onClearChat}
@@ -180,8 +243,8 @@ export default function SelectedChat({ selectedChat, onClearChat, onLogOut }) {
             <FolderSidebar 
               folders={messages} 
               activeFolder={activeFolder} 
-              onFolderClick={(uid) => navigate(`/drive/${chatId}/folder/${uid}`)} 
-              onBack={() => navigate(`/drive/${chatId}`)} 
+              onFolderClick={(uid) => { navigate(`/drive/${chatId}/folder/${uid}`); setSearchQuery(""); }} 
+              onBack={() => { navigate(`/drive/${chatId}`); setSearchQuery(""); }} 
               onOpenCreateModal={() => setIsCreateModalOpen(true)}
               onRenameClick={(folder) => { setFolderToRename(folder); setIsRenameModalOpen(true); }}
             />
@@ -191,8 +254,10 @@ export default function SelectedChat({ selectedChat, onClearChat, onLogOut }) {
                 folderName={activeFolderName} 
                 folderUID={activeFolder}
                 refreshTrigger={folderRefreshTrigger}
-                onBack={() => navigate(`/drive/${chatId}`)} 
+                searchQuery={searchQuery}
+                onBack={() => { navigate(`/drive/${chatId}`); setSearchQuery(""); }} 
                 onOpenUploadModal={() => setIsUploadModalOpen(true)}
+                onOpenFileDelete={handleOpenFileDelete}
               />
             </div>
           </>
@@ -206,8 +271,10 @@ export default function SelectedChat({ selectedChat, onClearChat, onLogOut }) {
             </div>
             <StorageGrid 
               messages={messages} 
-              onFolderClick={(uid) => navigate(`/drive/${chatId}/folder/${uid}`)} 
+              searchQuery={searchQuery}
+              onFolderClick={(uid) => { navigate(`/drive/${chatId}/folder/${uid}`); setSearchQuery(""); }} 
               onRenameClick={(folder) => { setFolderToRename(folder); setIsRenameModalOpen(true); }}
+              onDeleteClick={handleOpenDeleteFolder}
             />
           </div>
         )}
@@ -229,6 +296,28 @@ export default function SelectedChat({ selectedChat, onClearChat, onLogOut }) {
         isRenaming={isRenaming}
         oldFolder={folderToRename}
         renameProgressText={renameProgressText}
+      />
+
+      <DeleteConfirmModal
+        isOpen={isDeleteModalOpen}
+        onClose={() => { setIsDeleteModalOpen(false); setDeleteTarget(null); }}
+        onConfirm={handleDeleteConfirm}
+        title={deleteTarget?.type === 'folder' ? "Delete Folder" : "Delete File"}
+        message={
+          deleteTarget?.type === 'folder' 
+            ? `Are you sure you want to delete the folder "${deleteTarget.obj.name}"?`
+            : "Are you sure you want to delete this file from Telegram?"
+        }
+        isFolder={deleteTarget?.type === 'folder'}
+        isDeleting={isDeleting}
+        deleteProgressText={deleteProgressText}
+      />
+
+      <StorageAnalyticsModal 
+        isOpen={isAnalyticsOpen}
+        onClose={() => setIsAnalyticsOpen(false)}
+        selectedChat={selectedChat}
+        foldersCount={messages.length}
       />
 
       <UploadFileModal 

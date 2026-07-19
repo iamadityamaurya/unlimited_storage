@@ -95,3 +95,77 @@ export const renameFolderNode = async (client, selectedChatId, oldFolderObj, new
 
   onProgress && onProgress("Directory pointer synchronized.");
 };
+
+/**
+ * Delete a folder node from the Master Index
+ */
+export const deleteFolderNode = async (client, selectedChatId, folderUID, folderName) => {
+  const entityStr = selectedChatId;
+  const folderPayload = `${folderUID} - ${folderName}_File`;
+
+  const [searchHistory, recentHistory] = await Promise.all([
+    fetchAllIndexMessages(client, entityStr),
+    client.getMessages(entityStr, { limit: 100 })
+  ]);
+  
+  const allIndexes = [...recentHistory, ...searchHistory].filter(m => m.message && m.message.includes("###_UNLIMITED_STORAGE_INDEX_###"));
+  
+  if (allIndexes.length > 0) {
+    allIndexes.sort((a, b) => b.date - a.date);
+    const indexMsg = allIndexes[0];
+    
+    // Filter out the line of the folder we want to delete
+    const lines = indexMsg.message.split("\n");
+    const newLines = lines.filter(line => line.trim() !== "" && !line.includes(folderPayload));
+    
+    let newContent = "";
+    if (newLines.length > 1) {
+      newContent = newLines.join("\n");
+    } else {
+      // Just keep header if no folders left
+      newContent = "###_UNLIMITED_STORAGE_INDEX_###";
+    }
+    
+    await client.sendMessage(entityStr, { message: newContent });
+    try { await client.deleteMessages(entityStr, [indexMsg.id], { revoke: true }); } catch (e) {}
+  }
+};
+
+/**
+ * Recursively deletes all files in the chat matching the folderUID
+ */
+export const deleteFolderFiles = async (client, selectedChatId, folderUID, onProgress) => {
+  const entityStr = selectedChatId;
+  const suffix = `_${folderUID}`;
+  
+  onProgress && onProgress("Searching for child files...");
+  
+  const [searchHistory, recentHistory] = await Promise.all([
+    client.getMessages(entityStr, { limit: 10000, search: suffix }),
+    client.getMessages(entityStr, { limit: 300 })
+  ]);
+  
+  const uniqueMap = new Map();
+  [...recentHistory, ...searchHistory].forEach(msg => {
+    if (!uniqueMap.has(msg.id)) uniqueMap.set(msg.id, msg);
+  });
+  
+  const filesToDelete = Array.from(uniqueMap.values()).filter(
+    msg => msg.message && msg.message.trim().endsWith(suffix) && msg.media
+  );
+  
+  if (filesToDelete.length === 0) {
+    onProgress && onProgress("No child files found.");
+    return;
+  }
+  
+  const ids = filesToDelete.map(msg => msg.id);
+  onProgress && onProgress(`Deleting ${ids.length} files...`);
+  
+  // Delete in chunks of 100 to avoid limits
+  for (let i = 0; i < ids.length; i += 100) {
+    const chunk = ids.slice(i, i + 100);
+    onProgress && onProgress(`Deleting files ${i + 1} to ${Math.min(i + 100, ids.length)} of ${ids.length}...`);
+    await client.deleteMessages(entityStr, chunk, { revoke: true });
+  }
+};
