@@ -6,7 +6,6 @@ function ContextMenu({ onRename, onDelete, onClose }) {
   return (
     <div
       className="absolute top-9 right-0 w-36 bg-[#111320] border border-white/[0.1] shadow-2xl rounded-2xl py-2 z-50 animate-scale-in"
-      onMouseLeave={onClose}
     >
       <button
         onClick={e => { e.stopPropagation(); onRename(); onClose(); }}
@@ -82,23 +81,25 @@ export default function StorageGrid({ messages, searchQuery, onFolderClick, onRe
               }`}
             >
               {/* Context menu trigger */}
-              <div className="absolute top-2 right-2 z-20">
-                <button
-                  onClick={e => { e.stopPropagation(); setActiveMenuIdx(isMenuOpen ? null : idx); }}
-                  className="w-7 h-7 flex flex-col items-center justify-center gap-[2.5px] rounded-lg bg-transparent hover:bg-white/[0.08] transition-all opacity-0 group-hover:opacity-100 focus:opacity-100"
-                >
-                  {[0,1,2].map(i => (
-                    <div key={i} className="w-[3px] h-[3px] bg-slate-400 rounded-full" />
-                  ))}
-                </button>
-                {isMenuOpen && (
-                  <ContextMenu
-                    onRename={() => onRenameClick({ uid, name })}
-                    onDelete={() => onDeleteClick({ uid, name })}
-                    onClose={() => setActiveMenuIdx(null)}
-                  />
-                )}
-              </div>
+              {uid !== "uncategorised" && (
+                <div className={`absolute top-2 right-2 ${isMenuOpen ? 'z-50' : 'z-20'}`}>
+                  <button
+                    onClick={e => { e.stopPropagation(); setActiveMenuIdx(isMenuOpen ? null : idx); }}
+                    className="w-7 h-7 flex flex-col items-center justify-center gap-[2.5px] rounded-lg bg-transparent hover:bg-white/[0.08] transition-all opacity-0 group-hover:opacity-100 focus:opacity-100"
+                  >
+                    {[0,1,2].map(i => (
+                      <div key={i} className="w-[3px] h-[3px] bg-slate-400 rounded-full" />
+                    ))}
+                  </button>
+                  {isMenuOpen && (
+                    <ContextMenu
+                      onRename={() => onRenameClick({ uid, name })}
+                      onDelete={() => onDeleteClick({ uid, name })}
+                      onClose={() => setActiveMenuIdx(null)}
+                    />
+                  )}
+                </div>
+              )}
 
               {/* Folder icon */}
               <div className="w-20 h-20 flex items-center justify-center group-hover:scale-105 transition-transform duration-300">

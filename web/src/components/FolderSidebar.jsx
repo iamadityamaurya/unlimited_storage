@@ -7,6 +7,7 @@ export default function FolderSidebar({
   onBack,
   onOpenCreateModal,
   onRenameClick,
+  onDeleteClick,
 }) {
   const [activeMenuIdx, setActiveMenuIdx] = React.useState(null);
 
@@ -79,35 +80,45 @@ export default function FolderSidebar({
                 </button>
 
                 {/* Context menu trigger */}
-                <div className="absolute right-2 top-1/2 -translate-y-1/2 z-10">
-                  <button
-                    onClick={e => { e.stopPropagation(); setActiveMenuIdx(menuOpen ? null : idx); }}
-                    className={`w-6 h-6 flex flex-col items-center justify-center gap-[2px] rounded-md transition-all opacity-0 group-hover/row:opacity-100 focus:opacity-100 ${
-                      isActive ? 'hover:bg-white/20' : 'hover:bg-white/[0.08]'
-                    }`}
-                  >
-                    {[0,1,2].map(i => (
-                      <div key={i} className={`w-[2.5px] h-[2.5px] rounded-full ${isActive ? 'bg-white/70' : 'bg-slate-500'}`} />
-                    ))}
-                  </button>
-
-                  {menuOpen && (
-                    <div
-                      className="absolute top-8 right-0 w-36 bg-[#111320] border border-white/[0.1] shadow-2xl rounded-xl py-2 z-50 animate-scale-in"
-                      onMouseLeave={() => setActiveMenuIdx(null)}
+                {uid !== "uncategorised" && (
+                  <div className={`absolute right-2 top-1/2 -translate-y-1/2 ${menuOpen ? 'z-50' : 'z-10'}`}>
+                    <button
+                      onClick={e => { e.stopPropagation(); setActiveMenuIdx(menuOpen ? null : idx); }}
+                      className={`w-6 h-6 flex flex-col items-center justify-center gap-[2px] rounded-md transition-all opacity-0 group-hover/row:opacity-100 focus:opacity-100 ${
+                        isActive ? 'hover:bg-white/20' : 'hover:bg-white/[0.08]'
+                      }`}
                     >
-                      <button
-                        onClick={e => { e.stopPropagation(); onRenameClick({ uid, name }); setActiveMenuIdx(null); }}
-                        className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[13px] font-medium text-slate-400 hover:text-slate-100 hover:bg-white/[0.06] transition-colors"
+                      {[0,1,2].map(i => (
+                        <div key={i} className={`w-[2.5px] h-[2.5px] rounded-full ${isActive ? 'bg-white/70' : 'bg-slate-500'}`} />
+                      ))}
+                    </button>
+
+                    {menuOpen && (
+                      <div
+                        className="absolute top-8 right-0 w-36 bg-[#111320] border border-white/[0.1] shadow-2xl rounded-xl py-2 z-50 animate-scale-in"
                       >
-                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                        </svg>
-                        Rename
-                      </button>
-                    </div>
-                  )}
-                </div>
+                        <button
+                          onClick={e => { e.stopPropagation(); onRenameClick({ uid, name }); setActiveMenuIdx(null); }}
+                          className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[13px] font-medium text-slate-400 hover:text-slate-100 hover:bg-white/[0.06] transition-colors"
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                          </svg>
+                          Rename
+                        </button>
+                        <button
+                          onClick={e => { e.stopPropagation(); onDeleteClick && onDeleteClick({ uid, name }); setActiveMenuIdx(null); }}
+                          className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[13px] font-medium text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-colors"
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                          Delete
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             );
           })}

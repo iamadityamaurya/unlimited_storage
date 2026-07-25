@@ -33,7 +33,7 @@ export const fetchAllIndexMessages = async (client, entityStr) => {
 };
 
 export const createFolderNode = async (client, selectedChatId, folderName) => {
-  const sanitisedName = folderName.trim().replace(/###/g, "");
+  const sanitisedName = folderName.trim().replace(/[\r\n#_]/g, "").slice(0, 100) || "Untitled Folder";
   const uid = generateUID();
   const finalPayload = `${uid} - ${sanitisedName}_File`;
   const entityStr = selectedChatId;
@@ -69,8 +69,8 @@ export const renameFolderNode = async (client, selectedChatId, oldFolderObj, new
   const entityStr = selectedChatId;
   const { uid, name: oldName } = oldFolderObj;
   
-  const oldPayload = `${uid} - ${oldName}_File`;
-  const newPayload = `${uid} - ${newName.trim().replace(/###/g, "")}_File`;
+  const sanitisedNewName = newName.trim().replace(/[\r\n#_]/g, "").slice(0, 100) || "Untitled Folder";
+  const newPayload = `${uid} - ${sanitisedNewName}_File`;
 
   if (oldName === newName) return;
 
@@ -86,8 +86,16 @@ export const renameFolderNode = async (client, selectedChatId, oldFolderObj, new
     allIndexes.sort((a, b) => b.date - a.date);
     const indexMsg = allIndexes[0];
     
-    // Replace only the specific UID node line natively
-    const newContent = indexMsg.message.replace(oldPayload, newPayload);
+    // Replace the line matching the target folder UID
+    const lines = indexMsg.message.split("\n");
+    const updatedLines = lines.map(line => {
+      const parsed = parseFolderLine(line);
+      if (parsed && parsed.uid === uid) {
+        return newPayload;
+      }
+      return line;
+    });
+    const newContent = updatedLines.join("\n");
     
     await client.sendMessage(entityStr, { message: newContent });
     try { await client.deleteMessages(entityStr, [indexMsg.id], { revoke: true }); } catch (e) {}
@@ -101,7 +109,6 @@ export const renameFolderNode = async (client, selectedChatId, oldFolderObj, new
  */
 export const deleteFolderNode = async (client, selectedChatId, folderUID, folderName) => {
   const entityStr = selectedChatId;
-  const folderPayload = `${folderUID} - ${folderName}_File`;
 
   const [searchHistory, recentHistory] = await Promise.all([
     fetchAllIndexMessages(client, entityStr),
@@ -114,9 +121,15 @@ export const deleteFolderNode = async (client, selectedChatId, folderUID, folder
     allIndexes.sort((a, b) => b.date - a.date);
     const indexMsg = allIndexes[0];
     
-    // Filter out the line of the folder we want to delete
+    // Filter out the line of the folder matching folderUID
     const lines = indexMsg.message.split("\n");
-    const newLines = lines.filter(line => line.trim() !== "" && !line.includes(folderPayload));
+    const newLines = lines.filter(line => {
+      const trimmed = line.trim();
+      if (!trimmed) return false;
+      const parsed = parseFolderLine(trimmed);
+      if (parsed && parsed.uid === folderUID) return false;
+      return true;
+    });
     
     let newContent = "";
     if (newLines.length > 1) {

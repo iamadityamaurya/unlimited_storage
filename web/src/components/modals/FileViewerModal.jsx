@@ -64,7 +64,17 @@ export default function FileViewerModal({ msg: propMsg, onClose }) {
 
   const isImage = resolvedMsg?.media?.photo || (resolvedMsg?.media?.document?.mimeType || "").startsWith("image/");
   const isVideo = (resolvedMsg?.media?.document?.mimeType || "").startsWith("video/");
-  const rawName = resolvedMsg?.message ? resolvedMsg.message.split("_")[0] : "File";
+  
+  let rawName = "File";
+  if (resolvedMsg?.message) {
+    const text = resolvedMsg.message.trim();
+    const lastUnderscoreIdx = text.lastIndexOf("_");
+    if (lastUnderscoreIdx !== -1 && /^\d{6}$/.test(text.substring(lastUnderscoreIdx + 1).trim())) {
+      rawName = text.substring(0, lastUnderscoreIdx).trim();
+    } else {
+      rawName = text;
+    }
+  }
 
   if (!resolvedMsg && loading) {
     return (

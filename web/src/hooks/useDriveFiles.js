@@ -102,10 +102,25 @@ export function useDriveFiles(selectedChatId) {
                 }))
                 .reverse(); // Reverse strictly sorting the newest instances ascending organically
 
-             setMessages(fakeMessages);
+             const uncategorisedFolder = {
+               id: "uncategorised-folder-id",
+               message: "uncategorised",
+               uid: "uncategorised",
+               name: "Uncategorised",
+               date: Math.floor(Date.now() / 1000)
+             };
+
+             setMessages([...fakeMessages, uncategorisedFolder]);
           } else {
              // Safe default fallback natively skipping missing manifesto items
-             setMessages([]);
+             const uncategorisedFolder = {
+               id: "uncategorised-folder-id",
+               message: "uncategorised",
+               uid: "uncategorised",
+               name: "Uncategorised",
+               date: Math.floor(Date.now() / 1000)
+             };
+             setMessages([uncategorisedFolder]);
           }
           setLoading(false);
         }

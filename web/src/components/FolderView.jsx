@@ -23,10 +23,44 @@ const SORT_OPTIONS = [
   { id: "size-asc",  label: "Smallest first",b: "size", o: "asc"  },
 ];
 
+const getFileDisplayName = (msg, folderUID) => {
+  if (!msg) return "Unnamed File";
+  const text = (msg.message || "").trim();
+  
+  // If in a specific folder, strip that specific suffix
+  if (folderUID && folderUID !== "uncategorised") {
+    const suffix = `_${folderUID}`;
+    if (text.endsWith(suffix)) {
+      return text.substring(0, text.length - suffix.length).trim() || "Unnamed File";
+    }
+  }
+
+  // General fallback: check if it ends with _<6-digit-number> or any underscore-separated suffix that resembles a folder UID
+  const lastUnderscoreIdx = text.lastIndexOf("_");
+  if (lastUnderscoreIdx !== -1) {
+    const potentialUid = text.substring(lastUnderscoreIdx + 1).trim();
+    // Folder UIDs are 6-digit numeric codes
+    if (/^\d{6}$/.test(potentialUid)) {
+      return text.substring(0, lastUnderscoreIdx).trim() || "Unnamed File";
+    }
+  }
+
+  // Fallback: check document name attribute if text is empty
+  if (!text && msg.media?.document?.attributes) {
+    const fileAttr = msg.media.document.attributes.find(
+      attr => attr.className === "DocumentAttributeFilename" || attr.fileName
+    );
+    if (fileAttr && fileAttr.fileName) return fileAttr.fileName;
+  }
+
+  return text || "Unnamed File";
+};
+
 export default function FolderView({
   selectedChat,
   folderName,
   folderUID,
+  folders,
   refreshTrigger,
   searchQuery,
   onBack,
@@ -51,7 +85,7 @@ export default function FolderView({
     if (searchQuery) {
       const query = searchQuery.toLowerCase().trim();
       result = result.filter(f => {
-        const displayName = (f.message.split(`_${folderUID}`)[0] || "").toLowerCase();
+        const displayName = getFileDisplayName(f, folderUID).toLowerCase();
         return displayName.includes(query);
       });
     }
@@ -59,8 +93,8 @@ export default function FolderView({
     // Sorting
     return result.sort((a, b) => {
       if (sortBy === "name") {
-        const na = (a.message.split(`_${folderUID}`)[0] || "").toLowerCase();
-        const nb = (b.message.split(`_${folderUID}`)[0] || "").toLowerCase();
+        const na = getFileDisplayName(a, folderUID).toLowerCase();
+        const nb = getFileDisplayName(b, folderUID).toLowerCase();
         return sortOrder === "asc" ? na.localeCompare(nb) : nb.localeCompare(na);
       }
       if (sortBy === "date") {
@@ -121,19 +155,57 @@ export default function FolderView({
         if (!apiId || !apiHash || !token) return;
         const client    = await getConnectedClient(apiId, apiHash, token);
         const entityStr = selectedChat.id;
-        const suffix    = `_${folderUID}`;
-        const [searchHistory, recentHistory] = await Promise.all([
-          client.getMessages(entityStr, { limit: 10000, search: suffix }),
-          client.getMessages(entityStr, { limit: 300 }),
-        ]);
+
+        let allMessages = [];
+        if (folderUID === "uncategorised") {
+          // Fetch the recent history. For uncategorised, we fetch up to 1000 messages
+          // to make sure we cover a good window of files in the chat.
+          allMessages = await client.getMessages(entityStr, { limit: 1000 });
+        } else {
+          const suffix    = `_${folderUID}`;
+          const [searchHistory, recentHistory] = await Promise.all([
+            client.getMessages(entityStr, { limit: 10000, search: suffix }),
+            client.getMessages(entityStr, { limit: 300 }),
+          ]);
+          allMessages = [...recentHistory, ...searchHistory];
+        }
+
         const uniqueMap = new Map();
-        [...recentHistory, ...searchHistory].forEach(msg => {
-          if (!uniqueMap.has(msg.id)) uniqueMap.set(msg.id, msg);
+        allMessages.forEach(msg => {
+          if (msg && !uniqueMap.has(msg.id)) uniqueMap.set(msg.id, msg);
         });
+
         if (active) {
-          const filtered = Array.from(uniqueMap.values()).filter(
-            msg => msg.message && msg.message.trim().endsWith(suffix) && msg.media
-          );
+          let filtered = [];
+          if (folderUID === "uncategorised") {
+            // Get all active folder UIDs from folders prop
+            const folderUids = new Set(
+              (folders || [])
+                .map(f => f.uid)
+                .filter(uid => uid && uid !== "uncategorised")
+            );
+
+            filtered = Array.from(uniqueMap.values()).filter(msg => {
+              if (!msg.media) return false;
+              if (msg.message && msg.message.includes("###_UNLIMITED_STORAGE_INDEX_###")) return false;
+              
+              const text = (msg.message || "").trim();
+              const lastUnderscoreIdx = text.lastIndexOf("_");
+              if (lastUnderscoreIdx !== -1) {
+                const potentialUid = text.substring(lastUnderscoreIdx + 1).trim();
+                // If the suffix is an existing folder's UID, it belongs to that folder (not uncategorised)
+                if (folderUids.has(potentialUid)) {
+                  return false;
+                }
+              }
+              return true;
+            });
+          } else {
+            const suffix = `_${folderUID}`;
+            filtered = Array.from(uniqueMap.values()).filter(
+              msg => msg.message && msg.message.trim().endsWith(suffix) && msg.media
+            );
+          }
           setFiles(filtered);
           setLoading(false);
         }
@@ -144,7 +216,7 @@ export default function FolderView({
     };
     fetchFiles();
     return () => { active = false; };
-  }, [selectedChat.id, folderUID, refreshTrigger]);
+  }, [selectedChat.id, folderUID, folders, refreshTrigger]);
 
   return (
     <div className="flex-1 w-full flex flex-col pt-2 animate-fade-in relative">
@@ -266,7 +338,7 @@ export default function FolderView({
       ) : (
         <div className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-4 pb-20 w-full">
           {processedFiles.map((msg, idx) => {
-            const displayName = msg.message.split(`_${folderUID}`)[0].trim() || "Unnamed File";
+            const displayName = getFileDisplayName(msg, folderUID);
             let fileSize = "—";
             if (msg.media?.document?.size) fileSize = formatBytes(msg.media.document.size);
             else if (msg.media?.photo) fileSize = "Image";
@@ -284,7 +356,7 @@ export default function FolderView({
                 }`}
               >
                 {/* Context menu area */}
-                <div className="absolute top-2 right-2 z-10">
+                <div className={`absolute top-2 right-2 ${isMenuOpen ? 'z-50' : 'z-10'}`}>
                   {downloadingIdx === idx ? (
                     <div className="w-7 h-7 flex items-center justify-center">
                       <div className="w-4 h-4 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin-smooth" />

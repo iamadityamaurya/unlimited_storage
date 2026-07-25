@@ -165,8 +165,8 @@ export default function SelectedChat({ selectedChat, onClearChat, onLogOut }) {
         
         // Use user-defined caption if provided, otherwise default to the original native filename
         const baseName = captionsArray[i]?.trim() || fileObj.name;
-        // SUFFIX IS NOW THE IMMUTABLE UID
-        const finalPayloadText = `${baseName}_${activeFolder}`;
+        // If activeFolder is uncategorised, do not append a suffix
+        const finalPayloadText = activeFolder === "uncategorised" ? baseName : `${baseName}_${activeFolder}`;
 
         // Completely sidestep DOM typecasting bugs by extracting raw Blob arrays directly bypassing GramJS JS strict File typing validators
         const arrayBuffer = await fileObj.arrayBuffer();
@@ -247,12 +247,14 @@ export default function SelectedChat({ selectedChat, onClearChat, onLogOut }) {
               onBack={() => { navigate(`/drive/${chatId}`); setSearchQuery(""); }} 
               onOpenCreateModal={() => setIsCreateModalOpen(true)}
               onRenameClick={(folder) => { setFolderToRename(folder); setIsRenameModalOpen(true); }}
+              onDeleteClick={handleOpenDeleteFolder}
             />
             <div className="flex-1 overflow-y-auto custom-scrollbar px-8 lg:px-16 py-8">
               <FolderView 
                 selectedChat={selectedChat} 
                 folderName={activeFolderName} 
                 folderUID={activeFolder}
+                folders={messages}
                 refreshTrigger={folderRefreshTrigger}
                 searchQuery={searchQuery}
                 onBack={() => { navigate(`/drive/${chatId}`); setSearchQuery(""); }} 
