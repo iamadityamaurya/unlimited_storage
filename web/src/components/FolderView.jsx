@@ -66,6 +66,7 @@ export default function FolderView({
   onBack,
   onOpenUploadModal,
   onOpenFileDelete,
+  onBulkFileDelete,
 }) {
   const navigate = useNavigate();
   const [files, setFiles]           = useState([]);
@@ -76,6 +77,37 @@ export default function FolderView({
 
   const [activeMenuIdx, setActiveMenuIdx]       = useState(null);
   const [downloadingIdx, setDownloadingIdx]     = useState(null);
+
+  // Multi-file selection state
+  const [selectedFileIDs, setSelectedFileIDs]   = useState(new Set());
+
+  const handleToggleSelectFile = (id) => {
+    setSelectedFileIDs(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const handleSelectAllFiles = () => {
+    if (selectedFileIDs.size === processedFiles.length) {
+      setSelectedFileIDs(new Set());
+    } else {
+      setSelectedFileIDs(new Set(processedFiles.map(f => f.id)));
+    }
+  };
+
+  const handleClearFileSelection = () => {
+    setSelectedFileIDs(new Set());
+  };
+
+  const handleTriggerBulkDeleteFiles = () => {
+    const filesToDelete = processedFiles.filter(f => selectedFileIDs.has(f.id));
+    if (onBulkFileDelete) {
+      onBulkFileDelete(filesToDelete, () => setSelectedFileIDs(new Set()));
+    }
+  };
 
   // Filter first, then sort
   const processedFiles = React.useMemo(() => {
@@ -344,17 +376,47 @@ export default function FolderView({
             else if (msg.media?.photo) fileSize = "Image";
             const isImg = msg.media?.photo || (msg.media?.document?.mimeType || "").startsWith("image/");
             const isMenuOpen = activeMenuIdx === idx;
+            const isSelected = selectedFileIDs.has(msg.id);
+            const isSelectionMode = selectedFileIDs.size > 0;
+
+            const handleCardClick = () => {
+              if (isSelectionMode) {
+                handleToggleSelectFile(msg.id);
+              } else if (isImg) {
+                navigate(`/drive/${selectedChat.id}/folder/${folderUID}/file/${msg.id}`);
+              } else {
+                handleDownloadFile(msg, displayName, idx);
+              }
+            };
 
             return (
               <div
                 key={idx}
-                onClick={() => { isImg ? navigate(`/drive/${selectedChat.id}/folder/${folderUID}/file/${msg.id}`) : handleDownloadFile(msg, displayName, idx); }}
+                onClick={handleCardClick}
                 className={`group relative flex flex-col items-center justify-start p-4 pt-5 rounded-2xl cursor-pointer transition-all duration-200 border ${
-                  isMenuOpen
+                  isSelected
+                    ? 'bg-indigo-500/20 border-indigo-500 shadow-lg shadow-indigo-500/15 scale-[1.02] z-20'
+                    : isMenuOpen
                     ? 'bg-indigo-500/10 border-indigo-500/30 z-50'
                     : 'bg-white/[0.025] hover:bg-indigo-500/[0.07] border-transparent hover:border-indigo-500/20 z-0'
                 }`}
               >
+                {/* Selected Badge Indicator */}
+                {isSelected && (
+                  <div className="absolute top-2.5 left-2.5 z-30 w-5 h-5 rounded-lg bg-indigo-600 border border-indigo-400 text-white shadow-md shadow-indigo-500/40 flex items-center justify-center animate-scale-in">
+                    <svg className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                )}
+
+                {/* Selection Mode Unselected Badge */}
+                {isSelectionMode && !isSelected && (
+                  <div className="absolute top-2.5 left-2.5 z-30 w-5 h-5 rounded-lg bg-white/[0.05] border border-white/20 flex items-center justify-center">
+                    <div className="w-1.5 h-1.5 rounded-full bg-slate-500/40" />
+                  </div>
+                )}
+
                 {/* Context menu area */}
                 <div className={`absolute top-2 right-2 ${isMenuOpen ? 'z-50' : 'z-10'}`}>
                   {downloadingIdx === idx ? (
@@ -375,8 +437,16 @@ export default function FolderView({
                   {isMenuOpen && (
                     <div
                       className="absolute top-9 right-0 w-36 bg-[#111320] border border-white/[0.1] shadow-2xl rounded-xl py-2 z-50 animate-scale-in"
-                      onMouseLeave={() => setActiveMenuIdx(null)}
                     >
+                      <button
+                        onClick={e => { e.stopPropagation(); handleToggleSelectFile(msg.id); setActiveMenuIdx(null); }}
+                        className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[13px] font-medium text-indigo-400 hover:text-indigo-300 hover:bg-indigo-500/10 transition-colors"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        {isSelected ? 'Deselect' : 'Select'}
+                      </button>
                       <button
                         onClick={e => { e.stopPropagation(); handleDownloadFile(msg, displayName, idx); }}
                         className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[13px] font-medium text-slate-400 hover:text-slate-100 hover:bg-white/[0.06] transition-colors"
@@ -412,6 +482,47 @@ export default function FolderView({
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Floating Bulk Action Bar for Files */}
+      {selectedFileIDs.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-5 py-3 rounded-2xl bg-[#111320] border border-white/[0.12] shadow-2xl shadow-black/80 animate-scale-in">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-indigo-400 animate-pulse" />
+            <span className="text-xs font-semibold text-slate-200">
+              {selectedFileIDs.size} {selectedFileIDs.size === 1 ? 'file' : 'files'} selected
+            </span>
+          </div>
+
+          <div className="h-4 w-px bg-white/10" />
+
+          <button
+            onClick={handleSelectAllFiles}
+            className="text-xs font-medium text-slate-400 hover:text-slate-200 transition-colors px-1"
+          >
+            {selectedFileIDs.size === processedFiles.length ? 'Deselect All' : 'Select All'}
+          </button>
+
+          <button
+            onClick={handleTriggerBulkDeleteFiles}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-red-500/15 hover:bg-red-500/25 border border-red-500/25 text-red-400 text-xs font-semibold transition-all active:scale-95"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+            Delete Selected
+          </button>
+
+          <button
+            onClick={handleClearFileSelection}
+            className="p-1 rounded-lg text-slate-500 hover:text-slate-300 transition-colors"
+            title="Exit selection mode"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
         </div>
       )}
 

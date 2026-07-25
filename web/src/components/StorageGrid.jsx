@@ -2,11 +2,20 @@ import React, { useState } from 'react';
 import { FolderIcon } from './icons/Icons';
 
 // ─── Context menu ─────────────────────────────────────────────
-function ContextMenu({ onRename, onDelete, onClose }) {
+function ContextMenu({ onSelect, onRename, onDelete, onClose, isSelected }) {
   return (
     <div
       className="absolute top-9 right-0 w-36 bg-[#111320] border border-white/[0.1] shadow-2xl rounded-2xl py-2 z-50 animate-scale-in"
     >
+      <button
+        onClick={e => { e.stopPropagation(); onSelect(); onClose(); }}
+        className="w-full flex items-center gap-2.5 px-4 py-2 text-[13px] font-medium text-indigo-400 hover:text-indigo-300 hover:bg-indigo-500/10 transition-colors"
+      >
+        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        {isSelected ? 'Deselect' : 'Select'}
+      </button>
       <button
         onClick={e => { e.stopPropagation(); onRename(); onClose(); }}
         className="w-full flex items-center gap-2.5 px-4 py-2 text-[13px] font-medium text-slate-400 hover:text-slate-100 hover:bg-white/[0.06] transition-colors"
@@ -51,7 +60,18 @@ function EmptyState({ isFiltered }) {
 }
 
 // ─── Main Component ───────────────────────────────────────────
-export default function StorageGrid({ messages, searchQuery, onFolderClick, onRenameClick, onDeleteClick }) {
+export default function StorageGrid({
+  messages,
+  searchQuery,
+  onFolderClick,
+  onRenameClick,
+  onDeleteClick,
+  selectedUIDs = new Set(),
+  onToggleSelect,
+  onSelectAll,
+  onClearSelection,
+  onBulkDelete,
+}) {
   const [activeMenuIdx, setActiveMenuIdx] = useState(null);
 
   const filteredFolders = React.useMemo(() => {
@@ -60,26 +80,60 @@ export default function StorageGrid({ messages, searchQuery, onFolderClick, onRe
     return messages.filter(f => f.name.toLowerCase().includes(query));
   }, [messages, searchQuery]);
 
+  const validFolders = React.useMemo(() => {
+    return filteredFolders.filter(f => f.uid !== "uncategorised");
+  }, [filteredFolders]);
+
+  const isSelectionMode = selectedUIDs.size > 0;
+  const isAllSelected = validFolders.length > 0 && validFolders.every(f => selectedUIDs.has(f.uid));
+
   if (!messages || messages.length === 0) return <EmptyState isFiltered={false} />;
   if (filteredFolders.length === 0) return <EmptyState isFiltered={true} />;
 
   return (
     <>
-      <div className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-4 pb-20 w-full animate-fade-in">
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-4 pb-24 w-full animate-fade-in">
         {filteredFolders.map((msg, idx) => {
           const { uid, name } = msg;
           const isMenuOpen = activeMenuIdx === idx;
+          const isSelected = selectedUIDs.has(uid);
+
+          const handleCardClick = () => {
+            if (isSelectionMode && uid !== "uncategorised") {
+              onToggleSelect && onToggleSelect(uid);
+            } else if (onFolderClick) {
+              onFolderClick(uid, name);
+            }
+          };
 
           return (
             <div
               key={idx}
-              onClick={() => onFolderClick && onFolderClick(uid, name)}
-              className={`group relative flex flex-col items-center justify-start p-4 pt-5 rounded-2xl cursor-pointer transition-all duration-250 border ${
-                isMenuOpen
+              onClick={handleCardClick}
+              className={`group relative flex flex-col items-center justify-start p-4 pt-5 rounded-2xl cursor-pointer transition-all duration-200 border ${
+                isSelected
+                  ? 'bg-indigo-500/20 border-indigo-500 shadow-lg shadow-indigo-500/15 scale-[1.02]'
+                  : isMenuOpen
                   ? 'bg-indigo-500/10 border-indigo-500/30'
                   : 'bg-white/[0.025] hover:bg-indigo-500/[0.07] border-transparent hover:border-indigo-500/20'
               }`}
             >
+              {/* Selected Badge Indicator (only shown when selected or in selection mode) */}
+              {uid !== "uncategorised" && isSelected && (
+                <div className="absolute top-2.5 left-2.5 z-30 w-5 h-5 rounded-lg bg-indigo-600 border border-indigo-400 text-white shadow-md shadow-indigo-500/40 flex items-center justify-center animate-scale-in">
+                  <svg className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+              )}
+
+              {/* Selection Mode Unselected Badge */}
+              {uid !== "uncategorised" && isSelectionMode && !isSelected && (
+                <div className="absolute top-2.5 left-2.5 z-30 w-5 h-5 rounded-lg bg-white/[0.05] border border-white/20 flex items-center justify-center">
+                  <div className="w-1.5 h-1.5 rounded-full bg-slate-500/40" />
+                </div>
+              )}
+
               {/* Context menu trigger */}
               {uid !== "uncategorised" && (
                 <div className={`absolute top-2 right-2 ${isMenuOpen ? 'z-50' : 'z-20'}`}>
@@ -93,6 +147,8 @@ export default function StorageGrid({ messages, searchQuery, onFolderClick, onRe
                   </button>
                   {isMenuOpen && (
                     <ContextMenu
+                      isSelected={isSelected}
+                      onSelect={() => onToggleSelect && onToggleSelect(uid)}
                       onRename={() => onRenameClick({ uid, name })}
                       onDelete={() => onDeleteClick({ uid, name })}
                       onClose={() => setActiveMenuIdx(null)}
@@ -114,6 +170,47 @@ export default function StorageGrid({ messages, searchQuery, onFolderClick, onRe
           );
         })}
       </div>
+
+      {/* Floating Bulk Action Bar */}
+      {selectedUIDs.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-5 py-3 rounded-2xl bg-[#111320] border border-white/[0.12] shadow-2xl shadow-black/80 animate-scale-in">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-indigo-400 animate-pulse" />
+            <span className="text-xs font-semibold text-slate-200">
+              {selectedUIDs.size} {selectedUIDs.size === 1 ? 'folder' : 'folders'} selected
+            </span>
+          </div>
+
+          <div className="h-4 w-px bg-white/10" />
+
+          <button
+            onClick={() => onSelectAll && onSelectAll(validFolders.map(f => f.uid))}
+            className="text-xs font-medium text-slate-400 hover:text-slate-200 transition-colors px-1"
+          >
+            {isAllSelected ? 'Deselect All' : 'Select All'}
+          </button>
+
+          <button
+            onClick={onBulkDelete}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-red-500/15 hover:bg-red-500/25 border border-red-500/25 text-red-400 text-xs font-semibold transition-all active:scale-95"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+            Delete Selected
+          </button>
+
+          <button
+            onClick={onClearSelection}
+            className="p-1 rounded-lg text-slate-500 hover:text-slate-300 transition-colors"
+            title="Exit selection mode"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      )}
 
       {/* Background click-to-close context menus */}
       {activeMenuIdx !== null && (

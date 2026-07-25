@@ -15,7 +15,7 @@ import StorageAnalyticsModal from "./modals/StorageAnalyticsModal";
 import FolderSidebar from "./FolderSidebar";
 import FileViewerModal from "./modals/FileViewerModal";
 import { useDriveFiles } from "../hooks/useDriveFiles";
-import { createFolderNode, renameFolderNode, deleteFolderNode, deleteFolderFiles } from "../utils/folderManager";
+import { createFolderNode, renameFolderNode, deleteFolderNode, deleteFolderFiles, deleteMultipleFolderNodes } from "../utils/folderManager";
 
 export default function SelectedChat({ selectedChat, onClearChat, onLogOut }) {
   const navigate = useNavigate();
@@ -41,9 +41,39 @@ export default function SelectedChat({ selectedChat, onClearChat, onLogOut }) {
 
   // Delete States
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState(null); // { type: 'folder'|'file', obj: folderObj | fileMsg }
+  const [deleteTarget, setDeleteTarget] = useState(null); // { type: 'folder'|'file'|'bulkFolders', obj/objList }
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteProgressText, setDeleteProgressText] = useState("");
+
+  // Multi-Folder Selection State
+  const [selectedFolderUIDs, setSelectedFolderUIDs] = useState(new Set());
+
+  const handleToggleSelectFolder = (uid) => {
+    setSelectedFolderUIDs(prev => {
+      const next = new Set(prev);
+      if (next.has(uid)) next.delete(uid);
+      else next.add(uid);
+      return next;
+    });
+  };
+
+  const handleSelectAllFolders = (allUIDs) => {
+    if (selectedFolderUIDs.size === allUIDs.length) {
+      setSelectedFolderUIDs(new Set());
+    } else {
+      setSelectedFolderUIDs(new Set(allUIDs));
+    }
+  };
+
+  const handleClearFolderSelection = () => {
+    setSelectedFolderUIDs(new Set());
+  };
+
+  const handleOpenBulkDeleteFolders = () => {
+    const foldersToDelete = messages.filter(f => selectedFolderUIDs.has(f.uid));
+    setDeleteTarget({ type: 'bulkFolders', objList: foldersToDelete });
+    setIsDeleteModalOpen(true);
+  };
 
   // Binary Upload States
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
@@ -109,6 +139,11 @@ export default function SelectedChat({ selectedChat, onClearChat, onLogOut }) {
     setIsDeleteModalOpen(true);
   };
 
+  const handleOpenBulkFileDelete = (filesList, onSuccess) => {
+    setDeleteTarget({ type: 'bulkFiles', objList: filesList, onSuccess });
+    setIsDeleteModalOpen(true);
+  };
+
   const handleDeleteConfirm = async (recursive) => {
     if (!deleteTarget) return;
 
@@ -120,7 +155,18 @@ export default function SelectedChat({ selectedChat, onClearChat, onLogOut }) {
       
       const client = await getConnectedClient(apiId, apiHash, token);
       
-      if (deleteTarget.type === 'folder') {
+      if (deleteTarget.type === 'bulkFolders') {
+        setDeleteProgressText("Executing bulk folder removal...");
+        await deleteMultipleFolderNodes(
+          client,
+          selectedChat.id,
+          deleteTarget.objList,
+          recursive,
+          (prog) => setDeleteProgressText(prog)
+        );
+        setSelectedFolderUIDs(new Set());
+        await refresh();
+      } else if (deleteTarget.type === 'folder') {
         setDeleteProgressText("Updating directory index...");
         await deleteFolderNode(client, selectedChat.id, deleteTarget.obj.uid, deleteTarget.obj.name);
         
@@ -131,6 +177,12 @@ export default function SelectedChat({ selectedChat, onClearChat, onLogOut }) {
           });
         }
         await refresh();
+      } else if (deleteTarget.type === 'bulkFiles') {
+        setDeleteProgressText(`Deleting ${deleteTarget.objList.length} files from Telegram...`);
+        const fileIds = deleteTarget.objList.map(f => f.id);
+        await client.deleteMessages(selectedChat.id, fileIds, { revoke: true });
+        setFolderRefreshTrigger(prev => prev + 1);
+        if (deleteTarget.onSuccess) deleteTarget.onSuccess();
       } else if (deleteTarget.type === 'file') {
         setDeleteProgressText("Removing file block from Telegram...");
         await client.deleteMessages(selectedChat.id, [deleteTarget.obj.id], { revoke: true });
@@ -260,6 +312,7 @@ export default function SelectedChat({ selectedChat, onClearChat, onLogOut }) {
                 onBack={() => { navigate(`/drive/${chatId}`); setSearchQuery(""); }} 
                 onOpenUploadModal={() => setIsUploadModalOpen(true)}
                 onOpenFileDelete={handleOpenFileDelete}
+                onBulkFileDelete={handleOpenBulkFileDelete}
               />
             </div>
           </>
@@ -277,6 +330,11 @@ export default function SelectedChat({ selectedChat, onClearChat, onLogOut }) {
               onFolderClick={(uid) => { navigate(`/drive/${chatId}/folder/${uid}`); setSearchQuery(""); }} 
               onRenameClick={(folder) => { setFolderToRename(folder); setIsRenameModalOpen(true); }}
               onDeleteClick={handleOpenDeleteFolder}
+              selectedUIDs={selectedFolderUIDs}
+              onToggleSelect={handleToggleSelectFolder}
+              onSelectAll={handleSelectAllFolders}
+              onClearSelection={handleClearFolderSelection}
+              onBulkDelete={handleOpenBulkDeleteFolders}
             />
           </div>
         )}
@@ -304,13 +362,25 @@ export default function SelectedChat({ selectedChat, onClearChat, onLogOut }) {
         isOpen={isDeleteModalOpen}
         onClose={() => { setIsDeleteModalOpen(false); setDeleteTarget(null); }}
         onConfirm={handleDeleteConfirm}
-        title={deleteTarget?.type === 'folder' ? "Delete Folder" : "Delete File"}
+        title={
+          deleteTarget?.type === 'bulkFolders'
+            ? `Delete ${deleteTarget.objList.length} Folders`
+            : deleteTarget?.type === 'bulkFiles'
+            ? `Delete ${deleteTarget.objList.length} Files`
+            : deleteTarget?.type === 'folder'
+            ? "Delete Folder"
+            : "Delete File"
+        }
         message={
-          deleteTarget?.type === 'folder' 
+          deleteTarget?.type === 'bulkFolders'
+            ? `Are you sure you want to delete ${deleteTarget.objList.length} selected folders?`
+            : deleteTarget?.type === 'bulkFiles'
+            ? `Are you sure you want to delete ${deleteTarget.objList.length} selected files from Telegram?`
+            : deleteTarget?.type === 'folder' 
             ? `Are you sure you want to delete the folder "${deleteTarget.obj.name}"?`
             : "Are you sure you want to delete this file from Telegram?"
         }
-        isFolder={deleteTarget?.type === 'folder'}
+        isFolder={deleteTarget?.type === 'folder' || deleteTarget?.type === 'bulkFolders'}
         isDeleting={isDeleting}
         deleteProgressText={deleteProgressText}
       />

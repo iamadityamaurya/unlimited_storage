@@ -10,7 +10,7 @@ export default function DeleteConfirmModal({
   isDeleting = false,
   deleteProgressText = ""
 }) {
-  const [recursiveDelete, setRecursiveDelete] = useState(true);
+  const [recursiveDelete, setRecursiveDelete] = useState(false);
 
   if (!isOpen) return null;
 

@@ -182,3 +182,54 @@ export const deleteFolderFiles = async (client, selectedChatId, folderUID, onPro
     await client.deleteMessages(entityStr, chunk, { revoke: true });
   }
 };
+
+/**
+ * Bulk delete multiple folder nodes from the Master Index in a single atomic operation
+ * and optionally delete child files for all specified folders.
+ */
+export const deleteMultipleFolderNodes = async (client, selectedChatId, folderObjs, recursive, onProgress) => {
+  const entityStr = selectedChatId;
+  const targetUIDs = new Set(folderObjs.map(f => f.uid));
+
+  onProgress && onProgress("Updating Master Index Manifesto...");
+
+  const [searchHistory, recentHistory] = await Promise.all([
+    fetchAllIndexMessages(client, entityStr),
+    client.getMessages(entityStr, { limit: 100 })
+  ]);
+  
+  const allIndexes = [...recentHistory, ...searchHistory].filter(m => m.message && m.message.includes("###_UNLIMITED_STORAGE_INDEX_###"));
+  
+  if (allIndexes.length > 0) {
+    allIndexes.sort((a, b) => b.date - a.date);
+    const indexMsg = allIndexes[0];
+    
+    // Filter out all lines matching any target UID
+    const lines = indexMsg.message.split("\n");
+    const newLines = lines.filter(line => {
+      const trimmed = line.trim();
+      if (!trimmed) return false;
+      const parsed = parseFolderLine(trimmed);
+      if (parsed && targetUIDs.has(parsed.uid)) return false;
+      return true;
+    });
+    
+    let newContent = "";
+    if (newLines.length > 1) {
+      newContent = newLines.join("\n");
+    } else {
+      newContent = "###_UNLIMITED_STORAGE_INDEX_###";
+    }
+    
+    await client.sendMessage(entityStr, { message: newContent });
+    try { await client.deleteMessages(entityStr, [indexMsg.id], { revoke: true }); } catch (e) {}
+  }
+
+  if (recursive) {
+    for (let i = 0; i < folderObjs.length; i++) {
+      const f = folderObjs[i];
+      onProgress && onProgress(`Deleting child files for folder ${i + 1} of ${folderObjs.length} (${f.name})...`);
+      await deleteFolderFiles(client, selectedChatId, f.uid, onProgress);
+    }
+  }
+};
