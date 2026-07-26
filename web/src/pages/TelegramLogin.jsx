@@ -220,7 +220,7 @@ export default function TelegramLogin({ onLoginSuccess }) {
   };
 
   return (
-    <div className="relative min-h-screen w-full flex overflow-hidden bg-[#07080f]">
+    <div className="relative h-screen w-full flex overflow-hidden bg-[#07080f]">
 
       {/* ─── Left Panel: Brand Hero ──────────────────────── */}
       <div className="hidden lg:flex lg:w-[45%] xl:w-[42%] relative flex-col justify-between p-12 overflow-hidden">
@@ -279,11 +279,11 @@ export default function TelegramLogin({ onLoginSuccess }) {
       </div>
 
       {/* ─── Right Panel: Form ───────────────────────────── */}
-      <div className="flex-1 flex items-center justify-center p-6 sm:p-10 relative">
+      <div className="flex-1 overflow-y-auto custom-scrollbar h-full flex justify-center p-6 sm:p-10 relative">
         {/* Subtle ambient glow */}
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-indigo-600/[0.03] rounded-full blur-[100px] pointer-events-none" />
 
-        <div className="relative z-10 w-full max-w-sm animate-fade-up">
+        <div className="relative z-10 w-full max-w-sm my-auto animate-fade-up">
 
           {/* Mobile-only brand header */}
           <div className="lg:hidden flex items-center gap-3 mb-8">

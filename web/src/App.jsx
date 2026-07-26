@@ -8,11 +8,7 @@ function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={
-          <section id="center">
-            <div className="mt-8 mb-8">
-              <TelegramLogin onLoginSuccess={() => window.location.href = '/'} />
-            </div>
-          </section>
+          <TelegramLogin onLoginSuccess={() => window.location.href = '/'} />
         } />
         {/* Main home redirects to drives or last selected drive inside Home component */}
         <Route path="/" element={<Home />} />
