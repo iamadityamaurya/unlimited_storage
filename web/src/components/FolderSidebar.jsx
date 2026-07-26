@@ -11,6 +11,22 @@ export default function FolderSidebar({
 }) {
   const [activeMenuIdx, setActiveMenuIdx] = React.useState(null);
 
+  React.useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (activeMenuIdx !== null) {
+        if (!event.target.closest('.context-menu-container')) {
+          setActiveMenuIdx(null);
+        }
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("touchstart", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("touchstart", handleClickOutside);
+    };
+  }, [activeMenuIdx]);
+
   return (
     <div className="hidden md:flex w-72 flex-shrink-0 flex-col bg-[#0d0f1c]/80 backdrop-blur-xl border-r border-white/[0.07] h-[calc(100vh-64px)] sticky top-16 overflow-hidden">
 
@@ -56,7 +72,7 @@ export default function FolderSidebar({
             const menuOpen  = activeMenuIdx === idx;
 
             return (
-              <div key={idx} className="relative group/row">
+              <div key={idx} className={`relative group/row ${menuOpen ? 'z-50' : 'z-10'}`}>
                 <button
                   onClick={() => onFolderClick(uid, name)}
                   className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium transition-all duration-200 text-left ${
@@ -81,7 +97,10 @@ export default function FolderSidebar({
 
                 {/* Context menu trigger */}
                 {uid !== "uncategorised" && (
-                  <div className={`absolute right-2 top-1/2 -translate-y-1/2 ${menuOpen ? 'z-50' : 'z-10'}`}>
+                  <div 
+                    onClick={e => e.stopPropagation()}
+                    className={`context-menu-container absolute right-2 top-1/2 -translate-y-1/2 ${menuOpen ? 'z-50' : 'z-10'}`}
+                  >
                     <button
                       onClick={e => { e.stopPropagation(); setActiveMenuIdx(menuOpen ? null : idx); }}
                       className={`w-6 h-6 flex flex-col items-center justify-center gap-[2px] rounded-md transition-all opacity-0 group-hover/row:opacity-100 focus:opacity-100 ${
@@ -128,10 +147,7 @@ export default function FolderSidebar({
       {/* Bottom gradient fade */}
       <div className="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-[#0d0f1c] to-transparent pointer-events-none" />
 
-      {/* Close background */}
-      {activeMenuIdx !== null && (
-        <div className="fixed inset-0 z-40" onClick={() => setActiveMenuIdx(null)} />
-      )}
+
     </div>
   );
 }

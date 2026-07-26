@@ -17,6 +17,7 @@ export const initializeTelegramLogin = async ({
   const client = new TelegramClient(stringSession, parseInt(apiId), apiHash, {
     connectionRetries: 5,
   });
+  client.setLogLevel("error");
 
   await client.start({
     phoneNumber: phoneNumber,
@@ -44,6 +45,7 @@ export const getConnectedClient = async (apiId, apiHash, sessionToken) => {
   const client = new TelegramClient(stringSession, parseInt(apiId), apiHash, {
     connectionRetries: 5,
   });
+  client.setLogLevel("error");
   
   await client.connect(); // Actually connects directly using the token
   activeClient = client;

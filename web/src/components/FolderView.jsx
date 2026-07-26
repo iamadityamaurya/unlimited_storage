@@ -78,6 +78,27 @@ export default function FolderView({
   const [activeMenuIdx, setActiveMenuIdx]       = useState(null);
   const [downloadingIdx, setDownloadingIdx]     = useState(null);
 
+  React.useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (activeMenuIdx !== null) {
+        if (!event.target.closest('.context-menu-container')) {
+          setActiveMenuIdx(null);
+        }
+      }
+      if (sortMenuOpen) {
+        if (!event.target.closest('.sort-menu-container')) {
+          setSortMenuOpen(false);
+        }
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("touchstart", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("touchstart", handleClickOutside);
+    };
+  }, [activeMenuIdx, sortMenuOpen]);
+
   // Multi-file selection state
   const [selectedFileIDs, setSelectedFileIDs]   = useState(new Set());
 
@@ -284,7 +305,7 @@ export default function FolderView({
           </button>
 
           {/* Sort */}
-          <div className="relative">
+          <div className="relative sort-menu-container">
             <button
               onClick={() => setSortMenuOpen(!sortMenuOpen)}
               className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white/[0.04] border border-white/[0.08] hover:bg-white/[0.07] hover:border-indigo-500/30 text-slate-400 hover:text-slate-200 text-xs font-medium transition-all duration-200"
@@ -418,7 +439,10 @@ export default function FolderView({
                 )}
 
                 {/* Context menu area */}
-                <div className={`absolute top-2 right-2 ${isMenuOpen ? 'z-50' : 'z-10'}`}>
+                <div 
+                  onClick={e => e.stopPropagation()}
+                  className={`context-menu-container absolute top-2 right-2 ${isMenuOpen ? 'z-50' : 'z-10'}`}
+                >
                   {downloadingIdx === idx ? (
                     <div className="w-7 h-7 flex items-center justify-center">
                       <div className="w-4 h-4 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin-smooth" />
@@ -526,13 +550,7 @@ export default function FolderView({
         </div>
       )}
 
-      {/* Background closer */}
-      {(activeMenuIdx !== null || sortMenuOpen) && (
-        <div
-          className="fixed inset-0 z-40"
-          onClick={() => { setActiveMenuIdx(null); setSortMenuOpen(false); }}
-        />
-      )}
+
     </div>
   );
 }

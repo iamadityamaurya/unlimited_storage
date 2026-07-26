@@ -74,6 +74,22 @@ export default function StorageGrid({
 }) {
   const [activeMenuIdx, setActiveMenuIdx] = useState(null);
 
+  React.useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (activeMenuIdx !== null) {
+        if (!event.target.closest('.context-menu-container')) {
+          setActiveMenuIdx(null);
+        }
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("touchstart", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("touchstart", handleClickOutside);
+    };
+  }, [activeMenuIdx]);
+
   const filteredFolders = React.useMemo(() => {
     if (!searchQuery) return messages;
     const query = searchQuery.toLowerCase().trim();
@@ -112,10 +128,10 @@ export default function StorageGrid({
               onClick={handleCardClick}
               className={`group relative flex flex-col items-center justify-start p-4 pt-5 rounded-2xl cursor-pointer transition-all duration-200 border ${
                 isSelected
-                  ? 'bg-indigo-500/20 border-indigo-500 shadow-lg shadow-indigo-500/15 scale-[1.02]'
+                  ? 'bg-indigo-500/20 border-indigo-500 shadow-lg shadow-indigo-500/15 scale-[1.02] z-10'
                   : isMenuOpen
-                  ? 'bg-indigo-500/10 border-indigo-500/30'
-                  : 'bg-white/[0.025] hover:bg-indigo-500/[0.07] border-transparent hover:border-indigo-500/20'
+                  ? 'bg-indigo-500/10 border-indigo-500/30 z-50'
+                  : 'bg-white/[0.025] hover:bg-indigo-500/[0.07] border-transparent hover:border-indigo-500/20 z-0'
               }`}
             >
               {/* Selected Badge Indicator (only shown when selected or in selection mode) */}
@@ -136,7 +152,10 @@ export default function StorageGrid({
 
               {/* Context menu trigger */}
               {uid !== "uncategorised" && (
-                <div className={`absolute top-2 right-2 ${isMenuOpen ? 'z-50' : 'z-20'}`}>
+                <div 
+                  onClick={e => e.stopPropagation()}
+                  className={`context-menu-container absolute top-2 right-2 ${isMenuOpen ? 'z-50' : 'z-20'}`}
+                >
                   <button
                     onClick={e => { e.stopPropagation(); setActiveMenuIdx(isMenuOpen ? null : idx); }}
                     className="w-7 h-7 flex flex-col items-center justify-center gap-[2.5px] rounded-lg bg-transparent hover:bg-white/[0.08] transition-all opacity-0 group-hover:opacity-100 focus:opacity-100"
@@ -212,13 +231,7 @@ export default function StorageGrid({
         </div>
       )}
 
-      {/* Background click-to-close context menus */}
-      {activeMenuIdx !== null && (
-        <div
-          className="fixed inset-0 z-40"
-          onClick={() => setActiveMenuIdx(null)}
-        />
-      )}
+
     </>
   );
 }
