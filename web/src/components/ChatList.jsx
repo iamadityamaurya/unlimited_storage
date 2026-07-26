@@ -1,4 +1,5 @@
 import React from "react";
+import SetupGuide from "./SetupGuide";
 
 export default function ChatList({ chats, onSelectChat, onLogOut, errorMsg }) {
   return (
@@ -78,6 +79,8 @@ export default function ChatList({ chats, onSelectChat, onLogOut, errorMsg }) {
           </div>
         )}
       </div>
+
+      <SetupGuide />
 
       {/* Footer */}
       <div className="px-8 py-4 border-t border-white/[0.05]">

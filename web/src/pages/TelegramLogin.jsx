@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import PhoneInput from 'react-phone-number-input';
 import 'react-phone-number-input/style.css';
 import { getCookie, setCookie, deleteCookie } from "../utils/cookies";
+import SetupGuide from "../components/SetupGuide";
 
 // ─── Step label ───────────────────────────────────────────────
 const STEP_LABELS = ["Credentials", "Connecting", "Verify Code", "2FA Password", "Done"];
@@ -367,6 +368,7 @@ export default function TelegramLogin({ onLoginSuccess }) {
 
               {/* ── How to get credentials guide ── */}
               <ApiGuide />
+              <SetupGuide marginClass="mt-2" />
             </div>
           )}
 
